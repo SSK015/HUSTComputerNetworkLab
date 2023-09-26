@@ -8,6 +8,8 @@
 
 using namespace std;
 
+enum {Request, Listen, Surf, Exception};
+
 int main(){
 	WSADATA wsaData;
 	string input;
