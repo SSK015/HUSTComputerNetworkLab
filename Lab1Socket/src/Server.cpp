@@ -1,124 +1,157 @@
-#pragma once
-#include "winsock2.h"
-#include <stdio.h>
 #include <iostream>
+// #include <ios>
+#include <fstream>
+#include <cstring>
+#include <cstdio>
+#include <winsock2.h>
+#include <thread>
+#include <limits>
+#include <sstream>
+#include <vector>
+#include <direct.h> 
+
+#pragma comment(lib, "ws2_32.lib")
+
 using namespace std;
 
-#pragma comment(lib,"ws2_32.lib")
+const int MAX_CLIENTS = 5;
 
-int main(){
-	WSADATA wsaData;
-	fd_set rfds;				
-	fd_set wfds;				
-	bool first_connetion = true;
+string serverAddress = "127.0.0.1";
+int serverPort = 67;
+string rootDirectory = "/";
+// string root
 
-	int nRc = WSAStartup(0x0202,&wsaData);
+void loadConfig() {
+    ifstream configFile("../server.conf");
+    if (configFile.is_open()) {
+        getline(configFile, serverAddress);
+        configFile >> serverPort;
+		cout << serverPort << endl;
+        configFile.ignore(numeric_limits<streamsize>::max(), '\n'); // Ignore the newline
+        getline(configFile, rootDirectory);
+        configFile.close();
+    } else {
+        cerr << "Error opening config file. Using default values." << endl;
+    }
+}
 
-	if(nRc){
-		printf("Winsock  startup failed with error!\n");
-	}
+void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
+    char recvBuf[4096];
+    while (true) {
+        memset(recvBuf, '\0', sizeof(recvBuf));
+        int rtn = recv(clientSocket, recvBuf, sizeof(recvBuf), 0);
+        if (rtn > 0) {
+			unsigned short clientPort = ntohs(clientAddr.sin_port);
+            cout << "Received " << rtn << " bytes from client: " << "Port: " << clientPort << " msg: " << recvBuf << endl;
+        } else if (rtn == 0) {
+            cout << "Client disconnected." << endl;
+            closesocket(clientSocket);
+            break;
+        } else {
+            cerr << "recv() failed with error: " << WSAGetLastError() << endl;
+            closesocket(clientSocket);
+            break;
+        }
+        // char recvBuf[256];
+        memset(recvBuf, '\0', sizeof(recvBuf));
+        int bytesRead = recv(clientSocket, recvBuf, sizeof(recvBuf), 0);
+        if (bytesRead > 0) {
+            string requestedFileName = recvBuf;
+            string filePath = "D:\\code\\" + requestedFileName;
+			// cout << filePath << endl;
 
-	if(wsaData.wVersion != 0x0202){
-		printf("Winsock version is not correct!\n");
-	}
+            ifstream fileStream(filePath, ios::binary | ios::ate);
+            if (fileStream.is_open()) {
+                streampos fileSize = fileStream.tellg();
 
-	printf("Winsock  startup Ok!\n");
+                fileStream.seekg(0, ios::beg);
 
+                char* fileBuffer = new char[fileSize];
+				cout << fileSize << endl;
+                fileStream.read(fileBuffer, fileSize);
 
-	SOCKET srvSocket;
-	sockaddr_in addr,clientAddr;
-	SOCKET sessionSocket;
-	int addrLen;
-	//create socket
-	srvSocket = socket(AF_INET,SOCK_STREAM,0);
-	if(srvSocket != INVALID_SOCKET)
-		printf("Socket create Ok!\n");
-	//set port and ip
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(5050);
-	addr.sin_addr.S_un.S_addr = htonl(INADDR_ANY);
-	//binding
-	int rtn = bind(srvSocket,(LPSOCKADDR)&addr,sizeof(addr));
-	if(rtn != SOCKET_ERROR)
-		printf("Socket bind Ok!\n");
-	//listen
-	rtn = listen(srvSocket,5);
-	if(rtn != SOCKET_ERROR)
-		printf("Socket listen Ok!\n");
+                send(clientSocket, fileBuffer, fileSize, 0);
 
-	clientAddr.sin_family =AF_INET;
-	addrLen = sizeof(clientAddr);
-	char recvBuf[4096];
-
-	u_long blockMode = 1;
-
-	if ((rtn = ioctlsocket(srvSocket, FIONBIO, &blockMode) == SOCKET_ERROR)) { //Set socket to non-blocking mode
-		cout << "ioctlsocket() failed with error!\n";
-		return 0;
-	}
-	cout << "ioctlsocket() for server socket ok!	Waiting for client connection and data\n";
-
-	//initialize set to a empty set
-	FD_ZERO(&rfds);
-	FD_ZERO(&wfds);
-
-	FD_SET(srvSocket, &rfds);
-
-	while(true){
-		// Prepare for multiple-reuse
-		FD_ZERO(&rfds);
-		FD_ZERO(&wfds);
-
-		FD_SET(srvSocket, &rfds);
-
-		if (!first_connetion) {
-			//Reset File Discriptor
-			FD_SET(sessionSocket, &rfds);
-			FD_SET(sessionSocket, &wfds);
+                delete[] fileBuffer;
+                fileStream.close();
+				cout << "Successfully transfer the requested file!\n";
+            } else {
+                const char* errorResponse = "File not found.";
+                send(clientSocket, errorResponse, strlen(errorResponse), 0);
+            }
+			closesocket(clientSocket);
 		}
-		
-		// Watch File Discriptors to report their states.
-		int nTotal = select(0, &rfds, &wfds, NULL, NULL);
+    }
+}
 
-		//Check if server socket is well prepared to receive new client connection
-		if (FD_ISSET(srvSocket, &rfds)) {
-			// Reduce Discriptors need to be watching
-			nTotal--;
+int main() {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        cerr << "Failed to initialize Winsock" << endl;
+        return 1;
+    }
 
-			//Create a new socket to enable communication with client
-			sessionSocket = accept(srvSocket, (LPSOCKADDR)&clientAddr, &addrLen);
-			if (sessionSocket != INVALID_SOCKET)
-				printf("Socket listen one client request!\n");
+	loadConfig();
+    if (_chdir(rootDirectory.c_str()) != 0) {
+        cerr << "Failed to change directory to " << rootDirectory << endl;
+        WSACleanup();
+        return 1;
+    }
 
-			//Set socket attribute
-			if ((rtn = ioctlsocket(sessionSocket, FIONBIO, &blockMode) == SOCKET_ERROR)) { 
-				cout << "ioctlsocket() failed with error!\n";
-				return 0;
-			}
-			cout << "ioctlsocket() for session socket ok!	Waiting for client connection and data\n";
-			FD_SET(sessionSocket, &rfds);
-			FD_SET(sessionSocket, &wfds);
+    SOCKET srvSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (srvSocket == INVALID_SOCKET) {
+        cerr << "Error creating server socket" << endl;
+        WSACleanup();
+        return 1;
+    }
 
-			first_connetion = false;
+    sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serverAddr.sin_port = htons(serverPort);
 
-		}
+    if (bind(srvSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+        cerr << "Error binding server socket" << endl;
+        closesocket(srvSocket);
+        WSACleanup();
+        return 1;
+    }
 
+    if (listen(srvSocket, SOMAXCONN) == SOCKET_ERROR) {
+        cerr << "Error listening on server socket" << endl;
+        closesocket(srvSocket);
+        WSACleanup();
+        return 1;
+    }
 
-		if (nTotal > 0) {
-			if (FD_ISSET(sessionSocket, &rfds)) {
-				//receiving data from client
-				memset(recvBuf, '\0', 4096);
-				rtn = recv(sessionSocket, recvBuf, 256, 0);
-				if (rtn > 0) {
-					printf("Received %d bytes from client: %s\n", rtn, recvBuf);
-				}
-				else {
-					printf("Client leaving ...\n");
-					closesocket(sessionSocket); 
-				}
+    cout << "Server is listening on port " << serverPort <<  endl;
 
-			}
-		}	
-	}
+    vector<thread> clientThreads;
+
+    while (true) {
+        sockaddr_in clientAddr;
+        int addrLen = sizeof(clientAddr);
+
+        SOCKET clientSocket = accept(srvSocket, (LPSOCKADDR)&clientAddr, &addrLen);
+        if (clientSocket == INVALID_SOCKET) {
+            cerr << "accept() failed with error: " << WSAGetLastError() << endl;
+            continue;
+        }
+
+        cout << "Accepted a new client connection!" << endl;
+
+        if (clientThreads.size() < MAX_CLIENTS) {
+            thread clientThread(handleClient, clientSocket, clientAddr);
+            clientThread.detach();
+            clientThreads.push_back(move(clientThread));
+        } else {
+            cerr << "Maximum number of clients reached. Connection rejected." << endl;
+            closesocket(clientSocket);
+        }
+    }
+
+    closesocket(srvSocket);
+    WSACleanup();
+
     return 0;
 }

@@ -1,14 +1,38 @@
-#pragma once
-#include "winsock2.h"
-#include <stdio.h>
 #include <iostream>
-#include <string>
+// #include <ios>
+#include <fstream>
+#include <cstring>
+#include <cstdio>
+#include <winsock2.h>
+#include <thread>
+#include <limits>
+#include <sstream>
+#include <vector>
+#include <direct.h>
 
 #pragma comment(lib,"ws2_32.lib")
 
 using namespace std;
 
+string serverAddress = "127.0.0.1";
+int serverPort = 67;
+string rootDirectory = "D://client0//";
+
 enum {Request, Listen, Surf, Exception};
+
+void loadConfig() {
+    ifstream configFile("../server.conf");
+    if (configFile.is_open()) {
+        getline(configFile, serverAddress);
+        configFile >> serverPort;
+		cout << serverPort << endl;
+        configFile.ignore(numeric_limits<streamsize>::max(), '\n'); // Ignore the newline
+        // getline(configFile, rootDirectory);
+        // configFile.close();
+    } else {
+        cerr << "Error opening config file. Using default values." << endl;
+    }
+}
 
 int main(){
 	WSADATA wsaData;
@@ -26,6 +50,12 @@ int main(){
 
 	printf("Winsock  startup Ok!\n");
 
+	loadConfig();
+    if (_chdir(rootDirectory.c_str()) != 0) {
+        cerr << "Failed to change directory to " << rootDirectory << endl;
+        WSACleanup();
+        return 1;
+    }
 
 	SOCKET clientSocket;
 	sockaddr_in serverAddr,clientAddr;
@@ -49,9 +79,10 @@ int main(){
 
 	//set server's ip and port
 	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(5050);
-	serverAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
+	serverAddr.sin_port = htons(serverPort);
+	serverAddr.sin_addr.S_un.S_addr = inet_addr(serverAddress.c_str());
 
+	cout << "Client local port: " << clientAddr.sin_port << endl;
 	rtn = connect(clientSocket,(LPSOCKADDR)&serverAddr,sizeof(serverAddr));
 	if(rtn == SOCKET_ERROR )
 		printf("Connect to server error!\n");
@@ -70,6 +101,34 @@ int main(){
 			WSACleanup();
 			return 0;
 		}
+
+    const char* requestedFileName = "temp.txt";
+    send(clientSocket, requestedFileName, strlen(requestedFileName), 0);
+
+    ofstream outputFile("downloaded_file.txt", ios::binary);
+    if (!outputFile.is_open()) {
+        cerr << "Error opening local file for writing" << endl;
+        closesocket(clientSocket);
+        WSACleanup();
+        return 1;
+    }
+
+	cout << "client come here!" << endl;
+    char recvBuf[4096];
+    int bytesRead;
+    while ((bytesRead = recv(clientSocket, recvBuf, sizeof(recvBuf), 0)) > 0) {
+        outputFile.write(recvBuf, bytesRead);
+    }
+
+    outputFile.close();
+
+    if (bytesRead < 0) {
+        cerr << "recv() failed with error: " << WSAGetLastError() << endl;
+    } else {
+        cout << "File downloaded successfully." << endl;
+    }
+	closesocket(clientSocket);
+
 	}while(input != "quit");
 	closesocket(clientSocket);
 	WSACleanup();
