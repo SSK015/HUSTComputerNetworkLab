@@ -8,8 +8,8 @@ using namespace std;
 
 int main(){
 	WSADATA wsaData;
-	fd_set rfds;				//���ڼ��socket�Ƿ������ݵ����ĵ��ļ�������������socket������ģʽ�µȴ������¼�֪ͨ�������ݵ�����
-	fd_set wfds;				//���ڼ��socket�Ƿ���Է��͵��ļ�������������socket������ģʽ�µȴ������¼�֪ͨ�����Է������ݣ�
+	fd_set rfds;				
+	fd_set wfds;				
 	bool first_connetion = true;
 
 	int nRc = WSAStartup(0x0202,&wsaData);
@@ -50,55 +50,52 @@ int main(){
 	addrLen = sizeof(clientAddr);
 	char recvBuf[4096];
 
-	u_long blockMode = 1;//��srvSock��Ϊ������ģʽ�Լ����ͻ���������
+	u_long blockMode = 1;
 
-	if ((rtn = ioctlsocket(srvSocket, FIONBIO, &blockMode) == SOCKET_ERROR)) { //FIONBIO���������ֹ�׽ӿ�s�ķ�����ģʽ��
+	if ((rtn = ioctlsocket(srvSocket, FIONBIO, &blockMode) == SOCKET_ERROR)) { //Set socket to non-blocking mode
 		cout << "ioctlsocket() failed with error!\n";
 		return 0;
 	}
 	cout << "ioctlsocket() for server socket ok!	Waiting for client connection and data\n";
 
-	//���read,write����������rfds��wfds�����˳�ʼ����������FD_ZERO����գ��������FD_SET
+	//initialize set to a empty set
 	FD_ZERO(&rfds);
 	FD_ZERO(&wfds);
 
-	//���õȴ��ͻ���������
 	FD_SET(srvSocket, &rfds);
 
 	while(true){
-		//���read,write������
+		// Prepare for multiple-reuse
 		FD_ZERO(&rfds);
 		FD_ZERO(&wfds);
 
-		//���õȴ��ͻ���������
 		FD_SET(srvSocket, &rfds);
 
 		if (!first_connetion) {
-			//���õȴ��ỰSOKCET�ɽ������ݻ�ɷ�������
+			//Reset File Discriptor
 			FD_SET(sessionSocket, &rfds);
 			FD_SET(sessionSocket, &wfds);
 		}
 		
-		//��ʼ�ȴ�
+		// Watch File Discriptors to report their states.
 		int nTotal = select(0, &rfds, &wfds, NULL, NULL);
 
-		//���srvSock�յ��������󣬽��ܿͻ���������
+		//Check if server socket is well prepared to receive new client connection
 		if (FD_ISSET(srvSocket, &rfds)) {
+			// Reduce Discriptors need to be watching
 			nTotal--;
 
-			//�����ỰSOCKET
+			//Create a new socket to enable communication with client
 			sessionSocket = accept(srvSocket, (LPSOCKADDR)&clientAddr, &addrLen);
 			if (sessionSocket != INVALID_SOCKET)
 				printf("Socket listen one client request!\n");
 
-			//�ѻỰSOCKET��Ϊ������ģʽ
-			if ((rtn = ioctlsocket(sessionSocket, FIONBIO, &blockMode) == SOCKET_ERROR)) { //FIONBIO���������ֹ�׽ӿ�s�ķ�����ģʽ��
+			//Set socket attribute
+			if ((rtn = ioctlsocket(sessionSocket, FIONBIO, &blockMode) == SOCKET_ERROR)) { 
 				cout << "ioctlsocket() failed with error!\n";
 				return 0;
 			}
 			cout << "ioctlsocket() for session socket ok!	Waiting for client connection and data\n";
-
-			//���õȴ��ỰSOKCET�ɽ������ݻ�ɷ�������
 			FD_SET(sessionSocket, &rfds);
 			FD_SET(sessionSocket, &wfds);
 
@@ -106,9 +103,8 @@ int main(){
 
 		}
 
-		//���ỰSOCKET�Ƿ������ݵ���
+
 		if (nTotal > 0) {
-			//����ỰSOCKET�����ݵ���������ܿͻ�������
 			if (FD_ISSET(sessionSocket, &rfds)) {
 				//receiving data from client
 				memset(recvBuf, '\0', 4096);
@@ -118,7 +114,7 @@ int main(){
 				}
 				else {
 					printf("Client leaving ...\n");
-					closesocket(sessionSocket);  //��Ȼclient�뿪�ˣ��͹ر�sessionSocket
+					closesocket(sessionSocket); 
 				}
 
 			}

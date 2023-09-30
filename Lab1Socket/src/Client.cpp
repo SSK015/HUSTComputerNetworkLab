@@ -32,7 +32,7 @@ int main(){
 
 	int addrLen;
 
-	//create socket
+	//create socket, Use TCP/UDP protocol
 	clientSocket = socket(AF_INET,SOCK_STREAM,0);
 
 	if(clientSocket != INVALID_SOCKET)
