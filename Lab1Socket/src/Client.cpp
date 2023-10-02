@@ -16,19 +16,23 @@ using namespace std;
 
 string serverAddress = "127.0.0.1";
 int serverPort = 67;
-string rootDirectory = "D://client0//";
+string rootDirectory = "D://";
+
+string requestedFileName = "temp.txt";
+int option;
 
 enum {Request, Listen, Surf, Exception};
 
 void loadConfig() {
-    ifstream configFile("../server.conf");
+    ifstream configFile("../client.conf");
     if (configFile.is_open()) {
         getline(configFile, serverAddress);
         configFile >> serverPort;
-		cout << serverPort << endl;
+		// cout << serverPort << endl;
         configFile.ignore(numeric_limits<streamsize>::max(), '\n'); // Ignore the newline
-        // getline(configFile, rootDirectory);
-        // configFile.close();
+        getline(configFile, rootDirectory);
+		cout << rootDirectory << endl;
+        configFile.close();
     } else {
         cerr << "Error opening config file. Using default values." << endl;
     }
@@ -90,45 +94,71 @@ int main(){
 	printf("Connect to server ok!");
 	int cnt = 0;
 	do {
-		cout << "\nPlease input your message:";
-		cin >> input;
-
-		//send data to server
-		rtn = send(clientSocket,input.c_str(),input.length(),0);
-		if (rtn == SOCKET_ERROR) {
-			printf("Send to server failed\n");
-			closesocket(clientSocket);
-			WSACleanup();
-			return 0;
+		char MsgOption;
+		cout << "c to continue , q to quit" << endl;
+		cin >> MsgOption;
+		if (MsgOption == 'q') {
+			cout << "quit" << endl;
+			break;
+		} else if (MsgOption != 'c') {
+			cout << "Invalid Instruction!" << endl;
+			continue;
 		}
-	// if (cnt == 0) {
-		const char* requestedFileName = "temp.txt";
-		send(clientSocket, requestedFileName, strlen(requestedFileName), 0);
+		cout << "m for tranfer message," << endl << "s for get page" << endl << "and f for getting file" << endl;
+		cin >> MsgOption;
+		char MSGString[1];
+		MSGString[0] = MsgOption;
+		rtn = send(clientSocket,MSGString,sizeof(MSGString),0);
+		if (MsgOption == 'm') {
+			cout << "\nPlease input your message:";
+			cin >> input;
+			//send data to server
+			rtn = send(clientSocket,input.c_str(),input.length(),0);
+			if (rtn == SOCKET_ERROR) {
+				printf("Send to server failed\n");
+				closesocket(clientSocket);
+				WSACleanup();
+				return 0;
+			}
+		} else if (MsgOption == 's') {
 
-		ofstream outputFile("downloaded_file.txt", ios::binary);
-		if (!outputFile.is_open()) {
-			cerr << "Error opening local file for writing" << endl;
-			closesocket(clientSocket);
-			WSACleanup();
-			return 1;
-		}
+		} else if (MsgOption == 'f') {
+			send(clientSocket, requestedFileName.c_str(), strlen(requestedFileName.c_str()), 0);
 
-		cout << "client come here!" << endl;
-		char recvBuf[4096];
-		int bytesRead;
-		if ((bytesRead = recv(clientSocket, recvBuf, sizeof(recvBuf), 0)) > 0) {
-			outputFile.write(recvBuf, bytesRead);
-			cout << "Client" << endl;
-		}
+			ofstream outputFile("downloaded_file.txt", ios::binary);
+			if (!outputFile.is_open()) {
+				cerr << "Error opening local file for writing" << endl;
+				closesocket(clientSocket);
+				WSACleanup();
+				return 1;
+			}
 
-		outputFile.close();
-		cout << "after close" << endl;
+			cout << "client come here!" << endl;
+			char recvBuf[4096];
+			int bytesRead;
+			if ((bytesRead = recv(clientSocket, recvBuf, sizeof(recvBuf), 0)) > 0) {
+				outputFile.write(recvBuf, bytesRead);
+				cout << "Client" << endl;
+			}
 
-		if (bytesRead < 0) {
-			cerr << "recv() failed with error: " << WSAGetLastError() << endl;
+			outputFile.close();
+			// cout << "after close" << endl;
+
+			if (bytesRead < 0) {
+				cerr << "recv() failed with error: " << WSAGetLastError() << endl;
+			} else {
+				cout << "File downloaded successfully." << endl;
+			}
 		} else {
-			cout << "File downloaded successfully." << endl;
+			cout << "Wrong message!" << endl;
+			continue;
 		}
+
+
+
+	// if (cnt == 0) {
+		// const char* requestedFileName = "temp.txt";
+
 	// }
 
 	// closesocket(clientSocket);
