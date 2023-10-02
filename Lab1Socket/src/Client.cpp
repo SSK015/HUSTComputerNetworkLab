@@ -88,7 +88,7 @@ int main(){
 		printf("Connect to server error!\n");
 
 	printf("Connect to server ok!");
-
+	int cnt = 0;
 	do {
 		cout << "\nPlease input your message:";
 		cin >> input;
@@ -101,33 +101,37 @@ int main(){
 			WSACleanup();
 			return 0;
 		}
+	// if (cnt == 0) {
+		const char* requestedFileName = "temp.txt";
+		send(clientSocket, requestedFileName, strlen(requestedFileName), 0);
 
-    const char* requestedFileName = "temp.txt";
-    send(clientSocket, requestedFileName, strlen(requestedFileName), 0);
+		ofstream outputFile("downloaded_file.txt", ios::binary);
+		if (!outputFile.is_open()) {
+			cerr << "Error opening local file for writing" << endl;
+			closesocket(clientSocket);
+			WSACleanup();
+			return 1;
+		}
 
-    ofstream outputFile("downloaded_file.txt", ios::binary);
-    if (!outputFile.is_open()) {
-        cerr << "Error opening local file for writing" << endl;
-        closesocket(clientSocket);
-        WSACleanup();
-        return 1;
-    }
+		cout << "client come here!" << endl;
+		char recvBuf[4096];
+		int bytesRead;
+		if ((bytesRead = recv(clientSocket, recvBuf, sizeof(recvBuf), 0)) > 0) {
+			outputFile.write(recvBuf, bytesRead);
+			cout << "Client" << endl;
+		}
 
-	cout << "client come here!" << endl;
-    char recvBuf[4096];
-    int bytesRead;
-    while ((bytesRead = recv(clientSocket, recvBuf, sizeof(recvBuf), 0)) > 0) {
-        outputFile.write(recvBuf, bytesRead);
-    }
+		outputFile.close();
+		cout << "after close" << endl;
 
-    outputFile.close();
+		if (bytesRead < 0) {
+			cerr << "recv() failed with error: " << WSAGetLastError() << endl;
+		} else {
+			cout << "File downloaded successfully." << endl;
+		}
+	// }
 
-    if (bytesRead < 0) {
-        cerr << "recv() failed with error: " << WSAGetLastError() << endl;
-    } else {
-        cout << "File downloaded successfully." << endl;
-    }
-	closesocket(clientSocket);
+	// closesocket(clientSocket);
 
 	}while(input != "quit");
 	closesocket(clientSocket);

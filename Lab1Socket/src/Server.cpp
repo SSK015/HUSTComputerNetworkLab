@@ -79,8 +79,11 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 const char* errorResponse = "File not found.";
                 send(clientSocket, errorResponse, strlen(errorResponse), 0);
             }
-			closesocket(clientSocket);
-		}
+			// closesocket(clientSocket);
+		} else {
+            closesocket(clientSocket);
+            break;
+        }
     }
 }
 
