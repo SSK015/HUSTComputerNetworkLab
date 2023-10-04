@@ -74,8 +74,8 @@ int main(){
 
 	//set client port and ip
 	clientAddr.sin_family = AF_INET;
-	clientAddr.sin_port = htons(0);
-	clientAddr.sin_addr.S_un.S_addr = htonl(INADDR_ANY);
+	clientAddr.sin_port = htons(5050);
+	clientAddr.sin_addr.S_un.S_addr = inet_addr(serverAddress.c_str());
 	//binding
 	int rtn = bind(clientSocket,(LPSOCKADDR)&clientAddr,sizeof(clientAddr));
 	if(rtn != SOCKET_ERROR)
@@ -86,7 +86,7 @@ int main(){
 	serverAddr.sin_port = htons(serverPort);
 	serverAddr.sin_addr.S_un.S_addr = inet_addr(serverAddress.c_str());
 
-	cout << "Client local port: " << clientAddr.sin_port << endl;
+	// cout << "Client local port: " << clientAddr.sin_port << endl;
 	rtn = connect(clientSocket,(LPSOCKADDR)&serverAddr,sizeof(serverAddr));
 	if(rtn == SOCKET_ERROR )
 		printf("Connect to server error!\n");
@@ -121,6 +121,38 @@ int main(){
 				return 0;
 			}
 		} else if (MsgOption == 's') {
+			// 发送URL给服务器
+			// const char* url = "https://pfzuo.github.io/homepage/";
+
+			const char* url = "http://127.0.0.1/temp.txt";
+			int bytesSent = send(clientSocket, url, strlen(url), 0);
+			if (bytesSent < 0) {
+				perror("Error sending URL to server");
+				closesocket(clientSocket);
+				return 1;
+			}
+			
+			char buffer[4096];
+			int bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+			cout << buffer << endl;
+			// 	httpResponse.append(buffer, bytesRead);
+			// }
+			// cout << bytesRead << endl;
+
+			// 关闭客户端套接字
+			// close(clientSocket);
+
+			// size_t bodyStart = httpResponse.find("\r\n\r\n");
+			// if (bodyStart != std::string::npos) {
+			// 	// 找到HTTP头部和正文之间的空行
+			// 	// std::string htmlContent = httpResponse.substr(bodyStart + 4); // +4 to skip the CRLF CRLF
+			// 	std::cout << "Received HTML content:" << std::endl;
+				// std::cout << httpResponse << std::endl;
+			// } else {
+			// 	// 没有找到空行，说明HTTP响应格式不正确
+			// 	std::cerr << "Invalid HTTP response format - no empty line found." << std::endl;
+			// }
+			// cout << buffer << endl;
 
 		} else if (MsgOption == 'f') {
 			send(clientSocket, requestedFileName.c_str(), strlen(requestedFileName.c_str()), 0);
@@ -149,6 +181,8 @@ int main(){
 			} else {
 				cout << "File downloaded successfully." << endl;
 			}
+		} else if (MsgOption == 'r'){
+			;
 		} else {
 			cout << "Wrong message!" << endl;
 			continue;

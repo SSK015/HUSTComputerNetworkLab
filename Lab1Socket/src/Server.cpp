@@ -15,11 +15,98 @@
 using namespace std;
 
 const int MAX_CLIENTS = 5;
-enum {Request, Listen, Surf, Exception};
+enum {Request, Listen, Surf, Exception, ReloadConfig};
 string serverAddress = "127.0.0.1";
 int serverPort = 67;
 string rootDirectory = "/";
+int FLAG =0;
 // string root
+
+void forwardRequest(SOCKET clientSocket, const std::string& targetURL) {
+    size_t hostStart = targetURL.find("://");
+    if (hostStart == std::string::npos) {
+        std::cerr << "Invalid URL format" << std::endl;
+        return;
+    }
+    hostStart += 3; // skip "://" 
+    size_t hostEnd = targetURL.find('/', hostStart);
+    std::string host = targetURL.substr(hostStart, hostEnd - hostStart);
+    cout << host << " sxs" << endl;
+
+    // set connection to the target
+    struct hostent* targetHost = gethostbyname(host.c_str());
+    if (targetHost == nullptr) {
+        perror("Error resolving host");
+        return;
+    }
+
+    int targetSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (targetSocket < 0) {
+        perror("Error creating socket to target");
+        return;
+    }
+    // int nRecvBuf=65535;//设置为32K
+    // setsockopt(targetSocket,SOL_SOCKET,SO_RCVBUF,(const char*)&nRecvBuf,sizeof(int));
+
+
+
+    struct sockaddr_in targetAddr;
+    targetAddr.sin_family = AF_INET;
+    targetAddr.sin_port = htons(80);
+    targetAddr.sin_addr = *((struct in_addr*)targetHost->h_addr);
+
+    if (connect(targetSocket, (struct sockaddr*)&targetAddr, sizeof(targetAddr)) < 0) {
+        perror("Error connecting to target");
+        closesocket(targetSocket);
+        return;
+    }
+
+    // std::string request = "GET " + targetURL.substr(hostEnd) + "index.html" + " HTTP/1.1\r\n";
+    // // cout << request << endl;
+    // request += "Host: " + host + "\r\n";
+    // // request += "User-Agent: MyHttpClient/1.0\r\n";
+    // request += "Connection: keep-alive\r\n\r\n";
+    // cout << request << endl;
+
+    int bytesSent = send(targetSocket, request.c_str(), request.length(), 0);
+    if (bytesSent < 0) {
+        perror("Error sending request to target");
+        closesocket(targetSocket);
+        return;
+    }
+
+    // char buffer[40960];
+    // std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nHello, World!";
+    // send(clientSocket, response.c_str(), response.length(), 0);
+
+    // std::string httpResponse;
+    // while (true) {
+    //     memset(buffer, 0, sizeof(buffer));
+    //     int bytesRead = recv(targetSocket, buffer, 4096, 0);
+    //     // id (byte)
+    //     if (bytesRead <= 0) {
+            
+    //         break;
+    //     }
+    //     httpResponse.append(buffer, bytesRead);
+    //     cout << bytesRead << endl;
+    //     cout << buffer << endl;
+    //     // cout << 1595 << endl;
+    // }
+    // cout << "exit " << endl;
+    // cout << httpResponse << endl; 
+
+    // while (true) {
+    //     bytesSent = send(clientSocket, buffer, bytesRead, 0);
+    //     if (bytesSent < 0) {
+    //         perror("Error sending response to client");
+    //         // break;
+    //     }
+    // }
+
+    closesocket(targetSocket);
+}
+
 
 void loadConfig() {
     ifstream configFile("../server.conf");
@@ -38,7 +125,7 @@ void loadConfig() {
 void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
     char recvBuf[4096];
     char MSG[1];
-    int FLAG =0;
+
     while (true) {
         int rtn = recv(clientSocket, MSG, sizeof(MSG), 0);
         cout << MSG << endl;
@@ -64,6 +151,8 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             FLAG = Request;
         } else if (MSG[0] == 's') {
             FLAG = Surf;
+        } else if (MSG[0] == 'r') {
+            FLAG = ReloadConfig;
         } else {
             FLAG = Exception;
         }
@@ -71,6 +160,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
         
         if (FLAG == Listen) {
             // Msg
+            memset(recvBuf, '\0', sizeof(recvBuf));
             rtn = recv(clientSocket, recvBuf, sizeof(recvBuf), 0);
             unsigned short clientPort = ntohs(clientAddr.sin_port);
             cout << "Received " << rtn << " bytes from client: " << "Port: " << clientPort << " msg: " << recvBuf << endl;
@@ -102,6 +192,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                     const char* errorResponse = "File not found.";
                     send(clientSocket, errorResponse, strlen(errorResponse), 0);
                 }
+
                 // closesocket(clientSocket);
             } else {
                 closesocket(clientSocket);
@@ -109,8 +200,21 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             }
         } else if (FLAG == Surf) {
 
-        } else {
-            cout << "error happend" << endl;
+
+            memset(recvBuf, 0, sizeof(recvBuf));
+            int bytesRead = recv(clientSocket, recvBuf, sizeof(recvBuf), 0);
+            if (bytesRead <= 0) {
+                cerr << "Error receiving URL from client" << endl;
+                closesocket(clientSocket);
+                return;
+            }
+
+            std::string targetURL(recvBuf, bytesRead);
+            cout << "Received URL: " << targetURL << endl;
+
+            // 使用解析后的URL获取远程网页内容
+            // 这里可以使用之前提供的方法来获取远程网页内容，并将其发送回客户端
+            forwardRequest(clientSocket, targetURL);
         }
         
         // memset(recvBuf, '\0', sizeof(recvBuf));
@@ -121,68 +225,6 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
     }
 }
 
-void forwardRequest(int clientSocket, const std::string& targetURL) {
-    size_t hostStart = targetURL.find("://");
-    if (hostStart == std::string::npos) {
-        std::cerr << "Invalid URL format" << std::endl;
-        return;
-    }
-    hostStart += 3; // skip "://" 
-    size_t hostEnd = targetURL.find('/', hostStart);
-    std::string host = targetURL.substr(hostStart, hostEnd - hostStart);
-
-    // set connection to the target
-    struct hostent* targetHost = gethostbyname(host.c_str());
-    if (targetHost == nullptr) {
-        perror("Error resolving host");
-        return;
-    }
-
-    int targetSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (targetSocket < 0) {
-        perror("Error creating socket to target");
-        return;
-    }
-
-    struct sockaddr_in targetAddr;
-    targetAddr.sin_family = AF_INET;
-    targetAddr.sin_port = htons(80);
-    targetAddr.sin_addr = *((struct in_addr*)targetHost->h_addr);
-
-    if (connect(targetSocket, (struct sockaddr*)&targetAddr, sizeof(targetAddr)) < 0) {
-        perror("Error connecting to target");
-        closesocket(targetSocket);
-        return;
-    }
-
-    std::string request = "GET " + targetURL.substr(hostEnd) + " HTTP/1.1\r\n";
-    request += "Host: " + host + "\r\n\r\n";
-
-    int bytesSent = send(targetSocket, request.c_str(), request.length(), 0);
-    if (bytesSent < 0) {
-        perror("Error sending request to target");
-        closesocket(targetSocket);
-        return;
-    }
-
-    char buffer[4096];
-    memset(buffer, 0, sizeof(buffer));
-
-    while (true) {
-        int bytesRead = recv(targetSocket, buffer, sizeof(buffer), 0);
-        if (bytesRead <= 0) {
-            break;
-        }
-
-        int bytesSent = send(clientSocket, buffer, bytesRead, 0);
-        if (bytesSent < 0) {
-            perror("Error sending response to client");
-            break;
-        }
-    }
-
-    closesocket(targetSocket);
-}
 
 int main() {
     WSADATA wsaData;
@@ -191,6 +233,7 @@ int main() {
         return 1;
     }
 
+Reload:
 	loadConfig();
     if (_chdir(rootDirectory.c_str()) != 0) {
         cerr << "Failed to change directory to " << rootDirectory << endl;
@@ -209,6 +252,9 @@ int main() {
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     serverAddr.sin_port = htons(serverPort);
+
+    // int nRecvBuf=32*1024;//设置为32K
+    // setsockopt(srvSocket,SOL_SOCKET,SO_RCVBUF,(const char*)&nRecvBuf,sizeof(char));
 
     if (bind(srvSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         cerr << "Error binding server socket" << endl;
@@ -229,7 +275,10 @@ int main() {
     vector<thread> clientThreads;
 
     while (true) {
-
+        if (FLAG == ReloadConfig) {
+            FLAG = 0;
+            goto Reload;
+        }
         
         sockaddr_in clientAddr;
         int addrLen = sizeof(clientAddr);
