@@ -17,11 +17,33 @@ using namespace std;
 string serverAddress = "127.0.0.1";
 int serverPort = 67;
 string rootDirectory = "D://";
+int clientPort = 123456789;
+// string fileName = "hello.txt";
 
 string requestedFileName = "temp.txt";
 int option;
 
 enum {Request, Listen, Surf, Exception};
+
+std::string createHttpRequest(const std::string& host, const std::string& path) {
+    std::string request = "GET " + path + " HTTP/1.1\r\n";
+    request += "Host: " + host + "\r\n";
+    request += "Connection: close\r\n";
+    request += "\r\n"; 
+    return request;
+}
+
+std::string getFileExtension(const std::string& contentType) {
+    if (contentType.find("text/html") != std::string::npos) {
+        return ".html";
+    } else if (contentType.find("image/jpeg") != std::string::npos) {
+        return ".jpg";
+    } else if (contentType.find("image/png") != std::string::npos) {
+        return ".png";
+    } else {
+        return ".dat";
+    }
+}
 
 void loadConfig() {
     ifstream configFile("../client.conf");
@@ -32,6 +54,11 @@ void loadConfig() {
         configFile.ignore(numeric_limits<streamsize>::max(), '\n'); // Ignore the newline
         getline(configFile, rootDirectory);
 		cout << rootDirectory << endl;
+		// getline(configFile, clien);
+		configFile >> clientPort;
+		cout << clientPort << endl;
+		configFile >> requestedFileName;
+		cout << requestedFileName << endl;
         configFile.close();
     } else {
         cerr << "Error opening config file. Using default values." << endl;
@@ -74,7 +101,7 @@ int main(){
 
 	//set client port and ip
 	clientAddr.sin_family = AF_INET;
-	clientAddr.sin_port = htons(5050);
+	clientAddr.sin_port = htons(clientPort);
 	clientAddr.sin_addr.S_un.S_addr = inet_addr(serverAddress.c_str());
 	//binding
 	int rtn = bind(clientSocket,(LPSOCKADDR)&clientAddr,sizeof(clientAddr));
@@ -85,6 +112,13 @@ int main(){
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(serverPort);
 	serverAddr.sin_addr.S_un.S_addr = inet_addr(serverAddress.c_str());
+    // u_long nonBlockingMode = 1;
+    // if (ioctlsocket(clientSocket, FIONBIO, &nonBlockingMode) == SOCKET_ERROR) {
+    //     std::cerr << "Failed to set non-blocking mode" << std::endl;
+    //     closesocket(clientSocket);
+    //     WSACleanup();
+    //     return 1;
+    // }
 
 	// cout << "Client local port: " << clientAddr.sin_port << endl;
 	rtn = connect(clientSocket,(LPSOCKADDR)&serverAddr,sizeof(serverAddr));
@@ -97,6 +131,11 @@ int main(){
 		char MsgOption;
 		cout << "c to continue , q to quit" << endl;
 		cin >> MsgOption;
+        // SOCKET connfd = accept(clientSocket, (LPSOCKADDR)&clientAddr, &addrLen);
+        // if (connfd == INVALID_SOCKET) {
+        //     cerr << "accept() failed with error: " << WSAGetLastError() << endl;
+        //     continue;
+        // }
 		if (MsgOption == 'q') {
 			cout << "quit" << endl;
 			break;
@@ -121,38 +160,90 @@ int main(){
 				return 0;
 			}
 		} else if (MsgOption == 's') {
-			// 发送URL给服务器
-			// const char* url = "https://pfzuo.github.io/homepage/";
 
-			const char* url = "http://127.0.0.1/temp.txt";
-			int bytesSent = send(clientSocket, url, strlen(url), 0);
-			if (bytesSent < 0) {
-				perror("Error sending URL to server");
+			const std::string path = requestedFileName;
+			std::string httpRequest = createHttpRequest(serverAddress, path);
+
+			if (send(clientSocket, httpRequest.c_str(), httpRequest.size(), 0) == -1) {
+				std::cerr << "Error sending request" << std::endl;
 				closesocket(clientSocket);
 				return 1;
 			}
+			// int rcvBufSize = 409600;
+			// printf("you want to set udp socket recv buff size to %d\n", rcvBufSize);
+			// auto optlen = sizeof(rcvBufSize);
+			// if (setsockopt(clientSocket, SOL_SOCKET, SO_RCVBUF, (const char*)rcvBufSize, optlen) < 0)
+			// {
+			// 	printf("setsockopt error=%d(%s)!!!\n", errno, strerror(errno));
+			// 	// goto error;
+			// }
+			char buffer[409600];
+			std::string response;
+			int bytesRead;
+			if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) > 0) {
+				response.append(buffer, bytesRead);
+			}
+
+			cout << bytesRead << endl;
+
+			if (bytesRead == -1) {
+				std::cerr << "Error receiving response" << std::endl;
+				// closesocket(clientSocket);
+				// return 1;
+			}
+
+			cout << "Finish http get context" << endl;
+			// 解析Content-Type标头
+					FILE *fp;
+					if ((fp = fopen(requestedFileName.c_str(), "wb")) == NULL) {
+						cout << "file not" << endl;
+					}
+					// int n;
+					// while (1) {
+					// 	n = recv(clientSocket, buffer, sizeof(buffer), 0);
+					// 	if (n <= 0) {
+					// 		break;
+					// 	}
+
+					// }
+					// cout << buffer << endl;
+					fwrite(buffer, 1, sizeof(buffer), fp);
+					// // 写入文件
+					fclose(fp);
+			// size_t contentTypeStart = response.find("Content-Type:");
+			// if (contentTypeStart != std::string::npos) {
+			// 	size_t contentTypeEnd = response.find("\r\n", contentTypeStart);
+			// 	if (contentTypeEnd != std::string::npos) {
+			// 		std::string contentType = response.substr(contentTypeStart + 13, contentTypeEnd - (contentTypeStart + 13));
+			// 		std::string fileExtension = getFileExtension(contentType);
+			// 		FILE *fp;
+			// 		if ((fp = fopen("D:/client0/new1.jpg", "ab")) == NULL) {
+			// 			cout << "file not" << endl;
+			// 		}
+			// 		// int n;
+			// 		// while (1) {
+			// 		// 	n = recv(clientSocket, buffer, sizeof(buffer), 0);
+			// 		// 	if (n <= 0) {
+			// 		// 		break;
+			// 		// 	}
+
+			// 		// }
+			// 		// cout << buffer << endl;
+			// 		fwrite(buffer, 1, sizeof(buffer), fp);
+			// 		// // 写入文件
+			// 		fclose(fp);
+			// 		// std::ofstream outputFile("received_file" + fileExtension, std::ios::binary);
+			// 		// if (!outputFile.is_open()) {
+			// 		// 	std::cerr << "Error opening output file" << std::endl;
+			// 		// 	closesocket(clientSocket);
+			// 		// 	return 1;
+			// 		// }
+			// 		// outputFile.write(response.c_str(), response.size());
+			// 		// outputFile.close();
+			// 	}
+			// }
 			
-			char buffer[4096];
-			int bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
-			cout << buffer << endl;
-			// 	httpResponse.append(buffer, bytesRead);
-			// }
-			// cout << bytesRead << endl;
 
-			// 关闭客户端套接字
-			// close(clientSocket);
-
-			// size_t bodyStart = httpResponse.find("\r\n\r\n");
-			// if (bodyStart != std::string::npos) {
-			// 	// 找到HTTP头部和正文之间的空行
-			// 	// std::string htmlContent = httpResponse.substr(bodyStart + 4); // +4 to skip the CRLF CRLF
-			// 	std::cout << "Received HTML content:" << std::endl;
-				// std::cout << httpResponse << std::endl;
-			// } else {
-			// 	// 没有找到空行，说明HTTP响应格式不正确
-			// 	std::cerr << "Invalid HTTP response format - no empty line found." << std::endl;
-			// }
-			// cout << buffer << endl;
 
 		} else if (MsgOption == 'f') {
 			send(clientSocket, requestedFileName.c_str(), strlen(requestedFileName.c_str()), 0);

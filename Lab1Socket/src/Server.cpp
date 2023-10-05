@@ -61,7 +61,7 @@ void forwardRequest(SOCKET clientSocket, const std::string& targetURL) {
         return;
     }
 
-    // std::string request = "GET " + targetURL.substr(hostEnd) + "index.html" + " HTTP/1.1\r\n";
+    std::string request = "GET " + targetURL.substr(hostEnd) + "index.html" + " HTTP/1.1\r\n";
     // // cout << request << endl;
     // request += "Host: " + host + "\r\n";
     // // request += "User-Agent: MyHttpClient/1.0\r\n";
@@ -107,6 +107,32 @@ void forwardRequest(SOCKET clientSocket, const std::string& targetURL) {
     closesocket(targetSocket);
 }
 
+std::string getContentType(const std::string& filePath) {
+    if (filePath.find(".html") != std::string::npos) {
+        return "text/html";
+    } else if (filePath.find(".jpg") != std::string::npos || filePath.find(".jpeg") != std::string::npos) {
+        return "image/jpeg";
+    } else if (filePath.find(".png") != std::string::npos) {
+        return "image/png";
+    } else {
+        return "application/octet-stream";
+    }
+}
+
+std::string createHttpResponse(const std::string& filePath) {
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        return "HTTP/1.1 404 Not Found\r\n\r\nFile not found";
+    }
+
+    std::ostringstream responseStream;
+    responseStream << "HTTP/1.1 200 OK\r\n";
+    responseStream << "Content-Type: " << getContentType(filePath) << "\r\n";
+    responseStream << "Content-Length: " << file.tellg() << "\r\n\r\n";
+    responseStream << file.rdbuf();
+
+    return responseStream.str();
+}
 
 void loadConfig() {
     ifstream configFile("../server.conf");
@@ -199,22 +225,67 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 break;
             }
         } else if (FLAG == Surf) {
-
-
-            memset(recvBuf, 0, sizeof(recvBuf));
-            int bytesRead = recv(clientSocket, recvBuf, sizeof(recvBuf), 0);
-            if (bytesRead <= 0) {
-                cerr << "Error receiving URL from client" << endl;
+            char buffer[409600];
+            // char request
+            size_t bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+            if (bytesRead == -1) {
+                std::cerr << "Error reading from client" << std::endl;
                 closesocket(clientSocket);
-                return;
+                continue;
             }
 
-            std::string targetURL(recvBuf, bytesRead);
-            cout << "Received URL: " << targetURL << endl;
+            // 解析HTTP请求
+            std::string request(buffer, bytesRead);
+            size_t start = request.find("GET ");
+            if (start == std::string::npos) {
+                std::cerr << "Invalid HTTP request" << std::endl;
+                closesocket(clientSocket);
+                continue;
+            }
 
-            // 使用解析后的URL获取远程网页内容
-            // 这里可以使用之前提供的方法来获取远程网页内容，并将其发送回客户端
-            forwardRequest(clientSocket, targetURL);
+            size_t end = request.find(" HTTP", start);
+            if (end == std::string::npos) {
+                std::cerr << "Invalid HTTP request" << std::endl;
+                closesocket(clientSocket);
+                continue;
+            }
+
+            // int rcvBufSize = 409600;
+			// // printf("you want to set udp socket recv buff size to %d\n", rcvBufSize);
+			// auto optlen = sizeof(rcvBufSize);
+			// if (setsockopt(clientSocket, SOL_SOCKET, SO_SNDBUF, (const char*)rcvBufSize, optlen) < 0)
+			// {
+			// 	printf("setsockopt error=%d(%s)!!!\n", errno, strerror(errno));
+			// 	// goto error;
+			// }
+			// char buffer[409600];
+
+            std::string filePath = request.substr(start + 4, end - (start + 4));
+
+            // 创建HTTP响应
+            // filePath.append(rootDirectory);
+            filePath = rootDirectory + filePath;
+            cout << filePath << endl;
+            std::string response = createHttpResponse(filePath);
+            FILE* fq;
+            if ((fq = fopen(filePath.c_str(), "rb")) == NULL) {
+                printf("File not exist\n");
+            }
+            memset(buffer, '\0', sizeof(recvBuf));
+            // bzero()
+            while (!feof(fq)) {
+                auto len = fread(buffer, 1, sizeof(buffer), fq);
+                cout << len << endl;
+                if (len != send(clientSocket, buffer, len, 0)) {
+                    cout << "Writing" << endl;
+                    break;
+                }
+            }
+
+            fclose(fq);
+            // 发送HTTP响应给客户端
+            // int sendbytes = send(clientSocket, imageData.c_str(), imageData.length(), 0);
+            // cout << sendbytes << endl;
         }
         
         // memset(recvBuf, '\0', sizeof(recvBuf));
@@ -253,6 +324,7 @@ Reload:
     serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     serverAddr.sin_port = htons(serverPort);
 
+
     // int nRecvBuf=32*1024;//设置为32K
     // setsockopt(srvSocket,SOL_SOCKET,SO_RCVBUF,(const char*)&nRecvBuf,sizeof(char));
 
@@ -288,6 +360,7 @@ Reload:
             cerr << "accept() failed with error: " << WSAGetLastError() << endl;
             continue;
         }
+
 
         cout << "Accepted a new client connection!" << endl;
 
