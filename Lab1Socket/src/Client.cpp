@@ -41,7 +41,7 @@ std::string getFileExtension(const std::string& contentType) {
     } else if (contentType.find("image/png") != std::string::npos) {
         return ".png";
     } else {
-        return ".dat";
+        return ".txt";
     }
 }
 
@@ -178,70 +178,112 @@ int main(){
 			// 	// goto error;
 			// }
 			char buffer[409600];
+			char PicBuffer[102400];
+			char CssBuffer[102400];
+			char request[102400];
+			char PlayBuffer[102400];
 			std::string response;
+			std::string recvhttp;
 			int bytesRead;
-			if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) > 0) {
-				response.append(buffer, bytesRead);
-			}
+
 
 			cout << bytesRead << endl;
+			if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) < 10000000) {
+				response.append(buffer, bytesRead);
+				cout << bytesRead << endl;
+			}
+
+			int CssByte, PicByte;
+			int tmp;
+			if ((tmp = recv(clientSocket, CssBuffer, sizeof(CssBuffer), 0)) < 10000000) {
+				// recvhttp.append(request, bytesRead);
+				CssByte = tmp;
+				cout << tmp << endl;
+			}
+			if ((tmp = recv(clientSocket, PicBuffer, sizeof(PicBuffer), 0)) < 10000000) {
+				PicByte = tmp;
+				cout << tmp << endl;
+				// recvhttp.append(request, bytesRead);
+			}
+			// if ((tmp = recv(clientSocket, PlayBuffer, sizeof(CssBuffer), 0)) < 10000000) {
+			// 	// recvhttp.append(request, bytesRead);
+			// 	// CssByte = tmp;
+			// 	cout << tmp << endl;
+			// }
+
+			if ((bytesRead = recv(clientSocket, request, sizeof(request), 0)) < 1000000) {
+				recvhttp.append(request, bytesRead);
+				cout << bytesRead << endl;
+			}
+
+			// cout << bytesRead << endl;
 
 			if (bytesRead == -1) {
 				std::cerr << "Error receiving response" << std::endl;
 				// closesocket(clientSocket);
 				// return 1;
 			}
+			
+			// bytesRead = recv(clientSocket, , sizeof(buffer), 0)
+
+			int fileSize;
+			cout << recvhttp << endl;
+			size_t contentLengthPos = recvhttp.find("Content-Length:");
+
+			if (contentLengthPos != std::string::npos) {
+				// 找到 Content-Length 头部
+				size_t valueStart = contentLengthPos + strlen("Content-Length:");
+				size_t valueEnd = recvhttp.find("\r\n", valueStart);
+
+				if (valueEnd != std::string::npos) {
+					std::string contentLengthStr = recvhttp.substr(valueStart, valueEnd - valueStart);
+
+					// 转换为整数
+					// try {
+						fileSize = std::stoi(contentLengthStr);
+						// std::cout << "Content-Length: " << fileSize << "" << std::endl;
+					// } catch (const std::invalid_argument& e) {
+						// std::cerr << "无效的 Content-Length 值。\n";
+					// }
+				}
+			} else {
+				// std::cout << "未找到 Content-Length 头部。\n";
+			}
 
 			cout << "Finish http get context" << endl;
 			// 解析Content-Type标头
-					FILE *fp;
-					if ((fp = fopen(requestedFileName.c_str(), "wb")) == NULL) {
-						cout << "file not" << endl;
-					}
-					// int n;
-					// while (1) {
-					// 	n = recv(clientSocket, buffer, sizeof(buffer), 0);
-					// 	if (n <= 0) {
-					// 		break;
-					// 	}
+			
 
-					// }
-					// cout << buffer << endl;
-					fwrite(buffer, 1, sizeof(buffer), fp);
-					// // 写入文件
-					fclose(fp);
-			// size_t contentTypeStart = response.find("Content-Type:");
-			// if (contentTypeStart != std::string::npos) {
-			// 	size_t contentTypeEnd = response.find("\r\n", contentTypeStart);
-			// 	if (contentTypeEnd != std::string::npos) {
-			// 		std::string contentType = response.substr(contentTypeStart + 13, contentTypeEnd - (contentTypeStart + 13));
-			// 		std::string fileExtension = getFileExtension(contentType);
-			// 		FILE *fp;
-			// 		if ((fp = fopen("D:/client0/new1.jpg", "ab")) == NULL) {
-			// 			cout << "file not" << endl;
-			// 		}
-			// 		// int n;
-			// 		// while (1) {
-			// 		// 	n = recv(clientSocket, buffer, sizeof(buffer), 0);
-			// 		// 	if (n <= 0) {
-			// 		// 		break;
-			// 		// 	}
+			cout << fileSize << endl;
+			FILE *fp;
+			if ((fp = fopen(requestedFileName.c_str(), "wb")) == NULL) {
+				cout << "file not" << endl;
+			}
+			fwrite(buffer, 1, fileSize, fp);
+			// // 写入文件
+			fclose(fp);
+			if (1) {
+				if ((fp = fopen("k.jpg", "wb")) == NULL) {
+					cout << "file not" << endl;
+				}
+				// fwrite(PicBuffer, 1, PicByte, fp);
+				fwrite(CssBuffer, 1, CssByte, fp);
+				// // 写入文件
+				fclose(fp);
+				if ((fp = fopen("style.css", "wb")) == NULL) {
+					cout << "file not" << endl;
+				}
+				// fwrite(CssBuffer, 1, CssByte, fp);
+				fwrite(PicBuffer, 1, PicByte, fp);
+				// // 写入文件
+				fclose(fp);
+				// cout << fileSize << endl << CssByte << endl << PicByte << endl;
+			}
 
-			// 		// }
-			// 		// cout << buffer << endl;
-			// 		fwrite(buffer, 1, sizeof(buffer), fp);
-			// 		// // 写入文件
-			// 		fclose(fp);
-			// 		// std::ofstream outputFile("received_file" + fileExtension, std::ios::binary);
-			// 		// if (!outputFile.is_open()) {
-			// 		// 	std::cerr << "Error opening output file" << std::endl;
-			// 		// 	closesocket(clientSocket);
-			// 		// 	return 1;
-			// 		// }
-			// 		// outputFile.write(response.c_str(), response.size());
-			// 		// outputFile.close();
-			// 	}
-			// }
+
+
+			int result = system(requestedFileName.c_str());
+
 			
 
 

@@ -7,6 +7,7 @@
 #include <thread>
 #include <limits>
 #include <sstream>
+#include <regex>
 #include <vector>
 #include <direct.h> 
 
@@ -21,6 +22,39 @@ int serverPort = 67;
 string rootDirectory = "/";
 int FLAG =0;
 // string root
+// std::vector<
+
+void LoadResources(string path, string& PicName, string&CssName) {
+    std::ifstream inputFile("D:/code/index.html");
+    std::string htmlContent((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
+
+    std::regex hrefRegex("href\\s*=\\s*\"([^\"]*)\"");
+    std::regex srcRegex("src\\s*=\\s*\"([^\"]*)\"");
+
+    std::smatch match;
+    std::smatch match1;
+
+    std::cout << "Matching href attributes:" << std::endl;
+    while (std::regex_search(htmlContent, match, hrefRegex)) {
+        std::cout << "href: " << match[1] << std::endl;
+        CssName = match[1];
+        htmlContent = match.suffix().str();
+    }
+    std::ifstream inputFile1("D:/code/index.html");
+    std::string htmlContent1((std::istreambuf_iterator<char>(inputFile1)), std::istreambuf_iterator<char>());
+
+    // htmlContent1 = std::string((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
+    std::cout << "\nMatching src attributes:" << std::endl;
+    while (std::regex_search(htmlContent1, match1, srcRegex)) {
+        std::cout << "src: " << match1[1] << std::endl;
+        PicName = match1[1];
+        htmlContent1 = match1.suffix().str();
+    }
+
+    // return 0;
+}
+
+
 
 void forwardRequest(SOCKET clientSocket, const std::string& targetURL) {
     size_t hostStart = targetURL.find("://");
@@ -128,10 +162,15 @@ std::string createHttpResponse(const std::string& filePath) {
     std::ostringstream responseStream;
     responseStream << "HTTP/1.1 200 OK\r\n";
     responseStream << "Content-Type: " << getContentType(filePath) << "\r\n";
+    file.seekg(0, std::ios::end);
     responseStream << "Content-Length: " << file.tellg() << "\r\n\r\n";
+    file.seekg(0, std::ios::beg);
     responseStream << file.rdbuf();
 
+    // cout << responseStream.str() << endl;
+    file.close();
     return responseStream.str();
+
 }
 
 void loadConfig() {
@@ -266,15 +305,22 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             // filePath.append(rootDirectory);
             filePath = rootDirectory + filePath;
             cout << filePath << endl;
+            std::string CssName, PicName;
+
+            LoadResources(filePath, CssName, PicName);
             std::string response = createHttpResponse(filePath);
             FILE* fq;
             if ((fq = fopen(filePath.c_str(), "rb")) == NULL) {
                 printf("File not exist\n");
             }
-            memset(buffer, '\0', sizeof(recvBuf));
+            memset(buffer, '\0', sizeof(buffer));
+            fseek(fq, 0 ,SEEK_END);
+            int fileSize = ftell(fq);
+            fseek(fq, 0 ,SEEK_SET);
+            // cout << fileSize << endl;
             // bzero()
             while (!feof(fq)) {
-                auto len = fread(buffer, 1, sizeof(buffer), fq);
+                auto len = fread(buffer, 1, fileSize, fq);
                 cout << len << endl;
                 if (len != send(clientSocket, buffer, len, 0)) {
                     cout << "Writing" << endl;
@@ -283,8 +329,49 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             }
 
             fclose(fq);
-            // 发送HTTP响应给客户端
-            // int sendbytes = send(clientSocket, imageData.c_str(), imageData.length(), 0);
+            if (1) {
+                if ((fq = fopen(CssName.c_str(), "rb")) == NULL) {
+                    printf("File not exist\n");
+                }
+                memset(buffer, '\0', sizeof(buffer));
+                fseek(fq, 0 ,SEEK_END);
+                fileSize = ftell(fq);
+                fseek(fq, 0 ,SEEK_SET);
+                // cout << fileSize << endl;
+                // bzero()
+                while (!feof(fq)) {
+                    auto len = fread(buffer, 1, fileSize, fq);
+                    cout << len << endl;
+                    if (len != send(clientSocket, buffer, len, 0)) {
+                        cout << "Writing" << endl;
+                        break;
+                    }
+                }
+
+                fclose(fq);
+
+                if ((fq = fopen(PicName.c_str(), "rb")) == NULL) {
+                    printf("File not exist\n");
+                }
+                memset(buffer, '\0', sizeof(buffer));
+                fseek(fq, 0 ,SEEK_END);
+                fileSize = ftell(fq);
+                fseek(fq, 0 ,SEEK_SET);
+                // cout << fileSize << endl;
+                // bzero()
+                while (!feof(fq)) {
+                    auto len = fread(buffer, 1, fileSize, fq);
+                    cout << len << endl;
+                    if (len != send(clientSocket, buffer, len, 0)) {
+                        cout << "Writing" << endl;
+                        break;
+                    }
+                }
+
+                fclose(fq);
+            }
+
+            int sendbytes = send(clientSocket, response.c_str(), response.length(), 0);
             // cout << sendbytes << endl;
         }
         
