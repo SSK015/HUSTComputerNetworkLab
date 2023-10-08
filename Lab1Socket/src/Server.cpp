@@ -147,10 +147,15 @@ std::string getContentType(const std::string& filePath) {
         ResType = 1;
         return "text/html";
     } else if (filePath.find(".jpg") != std::string::npos || filePath.find(".jpeg") != std::string::npos) {
+        ResType = 0;
         return "image/jpeg";
+        // ResType = 0;
     } else if (filePath.find(".png") != std::string::npos) {
+        ResType = 0;
         return "image/png";
+        // ResType = 0;
     } else {
+        ResType = 0;
         return "application/octet-stream";
     }
 }
@@ -182,7 +187,7 @@ std::string create403HttpResponse(const std::string& filePath) {
     }
 
     std::ostringstream responseStream;
-    responseStream << "HTTP/1.1 404 Not Found\r\n";
+    responseStream << "HTTP/1.1 403 Forbidden\r\n";
     responseStream << "Content-Type: " << getContentType(filePath) << "\r\n";
     file.seekg(0, std::ios::end);
     responseStream << "Content-Length: " << file.tellg() << "\r\n\r\n";
@@ -263,6 +268,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             FLAG = Exception;
         }
         // } 
+        loadConfig();
         
         if (FLAG == Listen) {
             // Msg
@@ -305,10 +311,12 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 break;
             }
         } else if (FLAG == Surf) {
-            char buffer[409600];
-            // char* buffer = new char[400001];
+            // char buffer[409600];
+            char* buffer = new char[4000001];
+            // char* fileBuf = new char[4000001];
             // char request
-            size_t bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+            // size_t bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+            size_t bytesRead = recv(clientSocket, buffer, 4000001, 0);
             if (bytesRead == -1) {
                 std::cerr << "Error reading from client" << std::endl;
                 closesocket(clientSocket);
@@ -370,7 +378,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                     cout << "403 file!\n";
                 } 
 
-                break;
+                continue;
             }
             filePath = rootDirectory + filePath;
             cout << filePath << endl;
@@ -400,18 +408,20 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                     cout << "404 file!\n";
                 } 
 
-                break;
+                continue;
             }
             std::string CssName, PicName;
 
             LoadResources(filePath, CssName, PicName);
             std::string response = createHttpResponse(filePath);
             int sendbytes = send(clientSocket, response.c_str(), response.length(), 0);
+            cout << sendbytes << endl;
             // FILE* fq;
             if ((fq = fopen(filePath.c_str(), "rb")) == NULL) {
                 printf("File not exist\n");
             }
-            memset(buffer, '\0', sizeof(buffer));
+            // memset(buffer, '\0', sizeof(buffer));
+            memset(buffer, '\0', 4000001);
             fseek(fq, 0 ,SEEK_END);
             int fileSize = ftell(fq);
             fseek(fq, 0 ,SEEK_SET);
@@ -427,11 +437,14 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             }
 
             fclose(fq);
+            cout << ResType << endl;
+            // break;
             if (ResType) {
                 if ((fq = fopen(CssName.c_str(), "rb")) == NULL) {
                     printf("File not exist\n");
                 }
-                memset(buffer, '\0', sizeof(buffer));
+                // memset(buffer, '\0', sizeof(buffer));
+                memset(buffer, '\0', 4000001);
                 fseek(fq, 0 ,SEEK_END);
                 fileSize = ftell(fq);
                 fseek(fq, 0 ,SEEK_SET);
@@ -451,7 +464,8 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 if ((fq = fopen(PicName.c_str(), "rb")) == NULL) {
                     printf("File not exist\n");
                 }
-                memset(buffer, '\0', sizeof(buffer));
+                // memset(buffer, '\0', sizeof(buffer));
+                memset(buffer, '\0', 4000001);
                 fseek(fq, 0 ,SEEK_END);
                 fileSize = ftell(fq);
                 fseek(fq, 0 ,SEEK_SET);

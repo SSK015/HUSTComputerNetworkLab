@@ -162,6 +162,7 @@ int main(){
 	printf("Connect to server ok!");
 	int cnt = 0;
 	do {
+		loadConfig();
 		char MsgOption;
 		cout << "c to continue , q to quit" << endl;
 		cin >> MsgOption;
@@ -194,8 +195,16 @@ int main(){
 				return 0;
 			}
 		} else if (MsgOption == 's') {
-
+			int ResType = 0;
+			cin >> requestedFileName;
 			const std::string path = requestedFileName;
+			// cout << path << endl;
+			// cin >> path;
+			if (path.find(".html") != std::string::npos) {
+				ResType = 1;
+			} else {
+				// std::cout << "字符串不包含'.html'" << std::endl;
+			}
 			std::string httpRequest = createHttpRequest(serverAddress, path);
 
 			if (send(clientSocket, httpRequest.c_str(), httpRequest.size(), 0) == -1) {
@@ -211,18 +220,21 @@ int main(){
 			// 	printf("setsockopt error=%d(%s)!!!\n", errno, strerror(errno));
 			// 	// goto error;
 			// }
+			char* fileBuffer = new char[4000001];
 			char buffer[409600];
 			char PicBuffer[102400];
 			char CssBuffer[102400];
-			char request[102400];
+			// char request[102400];
+			char* request = new char[4000001];
 			char PlayBuffer[102400];
 			std::string response;
 			std::string recvhttp;
 			int bytesRead;
 
-			if ((bytesRead = recv(clientSocket, request, sizeof(request), 0)) < 1000000) {
+			if ((bytesRead = recv(clientSocket, request, 4000000, 0)) < 10000000) {
 				recvhttp.append(request, bytesRead);
-				cout << bytesRead << endl;
+				// cout << recvhttp << endl;
+				// cout << bytesRead << endl;
     			std::string searchString = "404 Not Found";
 				std::string searchString1 = "403 Forbidden";
 				if (recvhttp.find(searchString) != std::string::npos) {
@@ -266,22 +278,25 @@ int main(){
 			}
 
 			cout << bytesRead << endl;
-			if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) < 10000000) {
-				response.append(buffer, bytesRead);
+			// if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) < 10000000) {
+			if ((bytesRead = recv(clientSocket, fileBuffer, 4000000, 0)) < 10000000) {	
+				response.append(fileBuffer, bytesRead);
 				cout << bytesRead << endl;
 			}
 
 			int CssByte, PicByte;
 			int tmp;
-			if ((tmp = recv(clientSocket, CssBuffer, sizeof(CssBuffer), 0)) < 10000000) {
-				// recvhttp.append(request, bytesRead);
-				CssByte = tmp;
-				cout << tmp << endl;
-			}
-			if ((tmp = recv(clientSocket, PicBuffer, sizeof(PicBuffer), 0)) < 10000000) {
-				PicByte = tmp;
-				cout << tmp << endl;
-				// recvhttp.append(request, bytesRead);
+			if (ResType) {
+				if ((tmp = recv(clientSocket, CssBuffer, sizeof(CssBuffer), 0)) < 10000000) {
+					// recvhttp.append(request, bytesRead);
+					CssByte = tmp;
+					cout << tmp << endl;
+				}
+				if ((tmp = recv(clientSocket, PicBuffer, sizeof(PicBuffer), 0)) < 10000000) {
+					PicByte = tmp;
+					cout << tmp << endl;
+					// recvhttp.append(request, bytesRead);
+				}
 			}
 			// if ((tmp = recv(clientSocket, PlayBuffer, sizeof(CssBuffer), 0)) < 10000000) {
 			// 	// recvhttp.append(request, bytesRead);
@@ -305,7 +320,7 @@ int main(){
 			// bytesRead = recv(clientSocket, , sizeof(buffer), 0)
 
 			int fileSize;
-			cout << recvhttp << endl;
+			// cout << recvhttp << endl;
 			size_t contentLengthPos = recvhttp.find("Content-Length:");
 
 			if (contentLengthPos != std::string::npos) {
@@ -331,18 +346,18 @@ int main(){
 			cout << "Finish http get context" << endl;
 			// 解析Content-Type标头
 			
-
+			// fileSize = 2109183;
 			cout << fileSize << endl;
 			FILE *fp;
 			if ((fp = fopen(requestedFileName.c_str(), "wb")) == NULL) {
 				cout << "file not" << endl;
 			}
-			fwrite(buffer, 1, fileSize, fp);
+			fwrite(fileBuffer, 1, fileSize, fp);
 			// // 写入文件
 			fclose(fp);
 			std::string PicName, CssName;
 			LoadResources(recvhttp, PicName, CssName);
-			if (1) {
+			if (ResType) {
 				if ((fp = fopen(PicName.c_str(), "wb")) == NULL) {
 					cout << "file not" << endl;
 				}
