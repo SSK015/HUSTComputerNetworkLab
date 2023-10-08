@@ -9,6 +9,8 @@
 #include <sstream>
 #include <vector>
 #include <direct.h>
+#include <regex>
+
 
 #pragma comment(lib,"ws2_32.lib")
 
@@ -43,6 +45,38 @@ std::string getFileExtension(const std::string& contentType) {
     } else {
         return ".txt";
     }
+}
+
+void LoadResources(string path, string& PicName, string&CssName) {
+    // std::ifstream inputFile("D:/code/index.html");
+    // std::string htmlContent((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
+	std::string htmlContent = path;
+	std::string htmlContent1 = path;
+
+    std::regex hrefRegex("href\\s*=\\s*\"([^\"]*)\"");
+    std::regex srcRegex("src\\s*=\\s*\"([^\"]*)\"");
+
+    std::smatch match;
+    std::smatch match1;
+
+    std::cout << "Matching href attributes:" << std::endl;
+    while (std::regex_search(htmlContent, match, hrefRegex)) {
+        std::cout << "href: " << match[1] << std::endl;
+        CssName = match[1];
+        htmlContent = match.suffix().str();
+    }
+    // std::ifstream inputFile1("D:/code/index.html");
+    // std::string htmlContent1((std::istreambuf_iterator<char>(inputFile1)), std::istreambuf_iterator<char>());
+
+    // htmlContent1 = std::string((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
+    std::cout << "\nMatching src attributes:" << std::endl;
+    while (std::regex_search(htmlContent1, match1, srcRegex)) {
+        std::cout << "src: " << match1[1] << std::endl;
+        PicName = match1[1];
+        htmlContent1 = match1.suffix().str();
+    }
+
+    // return 0;
 }
 
 void loadConfig() {
@@ -186,6 +220,50 @@ int main(){
 			std::string recvhttp;
 			int bytesRead;
 
+			if ((bytesRead = recv(clientSocket, request, sizeof(request), 0)) < 1000000) {
+				recvhttp.append(request, bytesRead);
+				cout << bytesRead << endl;
+    			std::string searchString = "404 Not Found";
+				std::string searchString1 = "403 Forbidden";
+				if (recvhttp.find(searchString) != std::string::npos) {
+					std::cout << "The string contains '404 Not Found'. Breaking loop." << std::endl;
+					// break;
+					if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) < 10000000) {
+						response.append(buffer, bytesRead);
+						// cout << bytesRead << endl;
+					}
+					FILE *fp;
+					if ((fp = fopen("404.html", "wb")) == NULL) {
+						cout << "file not" << endl;
+					}
+					fwrite(buffer, 1, bytesRead, fp);
+					// // 写入文件
+
+					fclose(fp);
+					system("404.html");
+					continue;
+				}
+
+				if (recvhttp.find(searchString1) != std::string::npos) {
+					std::cout << "The string contains '403 Not Found'. Breaking loop." << std::endl;
+					// break;
+					if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) < 10000000) {
+						response.append(buffer, bytesRead);
+						// cout << bytesRead << endl;
+					}
+					FILE *fp;
+					if ((fp = fopen("403.html", "wb")) == NULL) {
+						cout << "file not" << endl;
+					}
+					fwrite(buffer, 1, bytesRead, fp);
+					// // 写入文件
+
+					fclose(fp);
+					system("403.html");
+					continue;
+				}
+
+			}
 
 			cout << bytesRead << endl;
 			if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) < 10000000) {
@@ -211,10 +289,10 @@ int main(){
 			// 	cout << tmp << endl;
 			// }
 
-			if ((bytesRead = recv(clientSocket, request, sizeof(request), 0)) < 1000000) {
-				recvhttp.append(request, bytesRead);
-				cout << bytesRead << endl;
-			}
+			// if ((recv(clientSocket, request, sizeof(request), 0)) < 1000000) {
+			// 	// recvhttp.append(request, bytesRead);
+			// 	// cout << bytesRead << endl;
+			// }
 
 			// cout << bytesRead << endl;
 
@@ -262,15 +340,17 @@ int main(){
 			fwrite(buffer, 1, fileSize, fp);
 			// // 写入文件
 			fclose(fp);
+			std::string PicName, CssName;
+			LoadResources(recvhttp, PicName, CssName);
 			if (1) {
-				if ((fp = fopen("k.jpg", "wb")) == NULL) {
+				if ((fp = fopen(PicName.c_str(), "wb")) == NULL) {
 					cout << "file not" << endl;
 				}
 				// fwrite(PicBuffer, 1, PicByte, fp);
 				fwrite(CssBuffer, 1, CssByte, fp);
 				// // 写入文件
 				fclose(fp);
-				if ((fp = fopen("style.css", "wb")) == NULL) {
+				if ((fp = fopen(CssName.c_str(), "wb")) == NULL) {
 					cout << "file not" << endl;
 				}
 				// fwrite(CssBuffer, 1, CssByte, fp);

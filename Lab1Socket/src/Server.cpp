@@ -21,6 +21,7 @@ string serverAddress = "127.0.0.1";
 int serverPort = 67;
 string rootDirectory = "/";
 int FLAG =0;
+int ResType = 0;
 // string root
 // std::vector<
 
@@ -143,6 +144,7 @@ void forwardRequest(SOCKET clientSocket, const std::string& targetURL) {
 
 std::string getContentType(const std::string& filePath) {
     if (filePath.find(".html") != std::string::npos) {
+        ResType = 1;
         return "text/html";
     } else if (filePath.find(".jpg") != std::string::npos || filePath.find(".jpeg") != std::string::npos) {
         return "image/jpeg";
@@ -173,6 +175,45 @@ std::string createHttpResponse(const std::string& filePath) {
 
 }
 
+std::string create403HttpResponse(const std::string& filePath) {
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        return "HTTP/1.1 404 Not Found\r\n\r\nFile not found";
+    }
+
+    std::ostringstream responseStream;
+    responseStream << "HTTP/1.1 404 Not Found\r\n";
+    responseStream << "Content-Type: " << getContentType(filePath) << "\r\n";
+    file.seekg(0, std::ios::end);
+    responseStream << "Content-Length: " << file.tellg() << "\r\n\r\n";
+    file.seekg(0, std::ios::beg);
+    responseStream << file.rdbuf();
+
+    // cout << responseStream.str() << endl;
+    file.close();
+    return responseStream.str();
+
+}
+
+std::string create404HttpResponse(const std::string& filePath) {
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        return "HTTP/1.1 404 Not Found\r\n\r\nFile not found";
+    }
+
+    std::ostringstream responseStream;
+    responseStream << "HTTP/1.1 404 Forbidden\r\n";
+    responseStream << "Content-Type: " << getContentType(filePath) << "\r\n";
+    file.seekg(0, std::ios::end);
+    responseStream << "Content-Length: " << file.tellg() << "\r\n\r\n";
+    file.seekg(0, std::ios::beg);
+    responseStream << file.rdbuf();
+
+    // cout << responseStream.str() << endl;
+    file.close();
+    return responseStream.str();
+
+}
 void loadConfig() {
     ifstream configFile("../server.conf");
     if (configFile.is_open()) {
@@ -265,6 +306,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             }
         } else if (FLAG == Surf) {
             char buffer[409600];
+            // char* buffer = new char[400001];
             // char request
             size_t bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
             if (bytesRead == -1) {
@@ -302,14 +344,70 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             std::string filePath = request.substr(start + 4, end - (start + 4));
 
             // 创建HTTP响应
+            FILE* fq;
             // filePath.append(rootDirectory);
+            if (filePath == "notpermit.txt") {
+                printf("File not exist\n");
+                std::string response403 = create403HttpResponse("403.html");
+                int sendbytes = send(clientSocket, response403.c_str(), response403.length(), 0);
+                string filePath = "D:\\code\\403.html";
+                // cout << filePath << endl;
+
+                ifstream fileStream(filePath, ios::binary | ios::ate);
+                if (fileStream.is_open()) {
+                    streampos fileSize = fileStream.tellg();
+
+                    fileStream.seekg(0, ios::beg);
+
+                    char* fileBuffer = new char[fileSize];
+                    cout << fileSize << endl;
+                    fileStream.read(fileBuffer, fileSize);
+
+                    send(clientSocket, fileBuffer, fileSize, 0);
+
+                    delete[] fileBuffer;
+                    fileStream.close();
+                    cout << "403 file!\n";
+                } 
+
+                break;
+            }
             filePath = rootDirectory + filePath;
             cout << filePath << endl;
+            
+            
+            if ((fq = fopen(filePath.c_str(), "rb")) == NULL) {
+                printf("File not exist\n");
+                std::string response404 = create404HttpResponse("404.html");
+                int sendbytes = send(clientSocket, response404.c_str(), response404.length(), 0);
+                string filePath = "D:\\code\\404.html";
+                // cout << filePath << endl;
+
+                ifstream fileStream(filePath, ios::binary | ios::ate);
+                if (fileStream.is_open()) {
+                    streampos fileSize = fileStream.tellg();
+
+                    fileStream.seekg(0, ios::beg);
+
+                    char* fileBuffer = new char[fileSize];
+                    cout << fileSize << endl;
+                    fileStream.read(fileBuffer, fileSize);
+
+                    send(clientSocket, fileBuffer, fileSize, 0);
+
+                    delete[] fileBuffer;
+                    fileStream.close();
+                    cout << "404 file!\n";
+                } 
+
+                break;
+            }
             std::string CssName, PicName;
 
             LoadResources(filePath, CssName, PicName);
             std::string response = createHttpResponse(filePath);
-            FILE* fq;
+            int sendbytes = send(clientSocket, response.c_str(), response.length(), 0);
+            // FILE* fq;
             if ((fq = fopen(filePath.c_str(), "rb")) == NULL) {
                 printf("File not exist\n");
             }
@@ -329,7 +427,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             }
 
             fclose(fq);
-            if (1) {
+            if (ResType) {
                 if ((fq = fopen(CssName.c_str(), "rb")) == NULL) {
                     printf("File not exist\n");
                 }
@@ -371,7 +469,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 fclose(fq);
             }
 
-            int sendbytes = send(clientSocket, response.c_str(), response.length(), 0);
+            
             // cout << sendbytes << endl;
         }
         
