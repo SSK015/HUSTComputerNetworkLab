@@ -261,15 +261,12 @@ int main(){
 					// break;
 					if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) < 10000000) {
 						response.append(buffer, bytesRead);
-						// cout << bytesRead << endl;
 					}
 					FILE *fp;
 					if ((fp = fopen("403.html", "wb")) == NULL) {
 						cout << "file not" << endl;
 					}
 					fwrite(buffer, 1, bytesRead, fp);
-					// // 写入文件
-
 					fclose(fp);
 					system("403.html");
 					continue;
@@ -278,7 +275,6 @@ int main(){
 			}
 
 			cout << bytesRead << endl;
-			// if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) < 10000000) {
 			if ((bytesRead = recv(clientSocket, fileBuffer, 4000000, 0)) < 10000000) {	
 				response.append(fileBuffer, bytesRead);
 				cout << bytesRead << endl;
@@ -298,62 +294,35 @@ int main(){
 					// recvhttp.append(request, bytesRead);
 				}
 			}
-			// if ((tmp = recv(clientSocket, PlayBuffer, sizeof(CssBuffer), 0)) < 10000000) {
-			// 	// recvhttp.append(request, bytesRead);
-			// 	// CssByte = tmp;
-			// 	cout << tmp << endl;
-			// }
-
-			// if ((recv(clientSocket, request, sizeof(request), 0)) < 1000000) {
-			// 	// recvhttp.append(request, bytesRead);
-			// 	// cout << bytesRead << endl;
-			// }
-
-			// cout << bytesRead << endl;
 
 			if (bytesRead == -1) {
 				std::cerr << "Error receiving response" << std::endl;
-				// closesocket(clientSocket);
-				// return 1;
 			}
-			
-			// bytesRead = recv(clientSocket, , sizeof(buffer), 0)
 
 			int fileSize;
-			// cout << recvhttp << endl;
 			size_t contentLengthPos = recvhttp.find("Content-Length:");
 
 			if (contentLengthPos != std::string::npos) {
-				// 找到 Content-Length 头部
 				size_t valueStart = contentLengthPos + strlen("Content-Length:");
 				size_t valueEnd = recvhttp.find("\r\n", valueStart);
 
 				if (valueEnd != std::string::npos) {
 					std::string contentLengthStr = recvhttp.substr(valueStart, valueEnd - valueStart);
-
-					// 转换为整数
-					// try {
 						fileSize = std::stoi(contentLengthStr);
-						// std::cout << "Content-Length: " << fileSize << "" << std::endl;
-					// } catch (const std::invalid_argument& e) {
-						// std::cerr << "无效的 Content-Length 值。\n";
-					// }
 				}
 			} else {
-				// std::cout << "未找到 Content-Length 头部。\n";
+
 			}
 
 			cout << "Finish http get context" << endl;
-			// 解析Content-Type标头
-			
-			// fileSize = 2109183;
+
 			cout << fileSize << endl;
 			FILE *fp;
 			if ((fp = fopen(requestedFileName.c_str(), "wb")) == NULL) {
 				cout << "file not" << endl;
 			}
 			fwrite(fileBuffer, 1, fileSize, fp);
-			// // 写入文件
+
 			fclose(fp);
 			std::string PicName, CssName;
 			LoadResources(recvhttp, PicName, CssName);
@@ -361,18 +330,16 @@ int main(){
 				if ((fp = fopen(PicName.c_str(), "wb")) == NULL) {
 					cout << "file not" << endl;
 				}
-				// fwrite(PicBuffer, 1, PicByte, fp);
+
 				fwrite(CssBuffer, 1, CssByte, fp);
-				// // 写入文件
+
 				fclose(fp);
 				if ((fp = fopen(CssName.c_str(), "wb")) == NULL) {
 					cout << "file not" << endl;
 				}
-				// fwrite(CssBuffer, 1, CssByte, fp);
+
 				fwrite(PicBuffer, 1, PicByte, fp);
-				// // 写入文件
 				fclose(fp);
-				// cout << fileSize << endl << CssByte << endl << PicByte << endl;
 			}
 
 
@@ -402,7 +369,6 @@ int main(){
 			}
 
 			outputFile.close();
-			// cout << "after close" << endl;
 
 			if (bytesRead < 0) {
 				cerr << "recv() failed with error: " << WSAGetLastError() << endl;
@@ -415,16 +381,6 @@ int main(){
 			cout << "Wrong message!" << endl;
 			continue;
 		}
-
-
-
-	// if (cnt == 0) {
-		// const char* requestedFileName = "temp.txt";
-
-	// }
-
-	// closesocket(clientSocket);
-
 	}while(input != "quit");
 	closesocket(clientSocket);
 	WSACleanup();

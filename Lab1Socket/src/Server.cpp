@@ -80,11 +80,6 @@ void forwardRequest(SOCKET clientSocket, const std::string& targetURL) {
         perror("Error creating socket to target");
         return;
     }
-    // int nRecvBuf=65535;//设置为32K
-    // setsockopt(targetSocket,SOL_SOCKET,SO_RCVBUF,(const char*)&nRecvBuf,sizeof(int));
-
-
-
     struct sockaddr_in targetAddr;
     targetAddr.sin_family = AF_INET;
     targetAddr.sin_port = htons(80);
@@ -97,11 +92,6 @@ void forwardRequest(SOCKET clientSocket, const std::string& targetURL) {
     }
 
     std::string request = "GET " + targetURL.substr(hostEnd) + "index.html" + " HTTP/1.1\r\n";
-    // // cout << request << endl;
-    // request += "Host: " + host + "\r\n";
-    // // request += "User-Agent: MyHttpClient/1.0\r\n";
-    // request += "Connection: keep-alive\r\n\r\n";
-    // cout << request << endl;
 
     int bytesSent = send(targetSocket, request.c_str(), request.length(), 0);
     if (bytesSent < 0) {
@@ -109,35 +99,6 @@ void forwardRequest(SOCKET clientSocket, const std::string& targetURL) {
         closesocket(targetSocket);
         return;
     }
-
-    // char buffer[40960];
-    // std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nHello, World!";
-    // send(clientSocket, response.c_str(), response.length(), 0);
-
-    // std::string httpResponse;
-    // while (true) {
-    //     memset(buffer, 0, sizeof(buffer));
-    //     int bytesRead = recv(targetSocket, buffer, 4096, 0);
-    //     // id (byte)
-    //     if (bytesRead <= 0) {
-            
-    //         break;
-    //     }
-    //     httpResponse.append(buffer, bytesRead);
-    //     cout << bytesRead << endl;
-    //     cout << buffer << endl;
-    //     // cout << 1595 << endl;
-    // }
-    // cout << "exit " << endl;
-    // cout << httpResponse << endl; 
-
-    // while (true) {
-    //     bytesSent = send(clientSocket, buffer, bytesRead, 0);
-    //     if (bytesSent < 0) {
-    //         perror("Error sending response to client");
-    //         // break;
-    //     }
-    // }
 
     closesocket(targetSocket);
 }
@@ -194,7 +155,6 @@ std::string create403HttpResponse(const std::string& filePath) {
     file.seekg(0, std::ios::beg);
     responseStream << file.rdbuf();
 
-    // cout << responseStream.str() << endl;
     file.close();
     return responseStream.str();
 
@@ -313,9 +273,6 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
         } else if (FLAG == Surf) {
             // char buffer[409600];
             char* buffer = new char[4000001];
-            // char* fileBuf = new char[4000001];
-            // char request
-            // size_t bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
             size_t bytesRead = recv(clientSocket, buffer, 4000001, 0);
             if (bytesRead == -1) {
                 std::cerr << "Error reading from client" << std::endl;
@@ -339,27 +296,14 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 continue;
             }
 
-            // int rcvBufSize = 409600;
-			// // printf("you want to set udp socket recv buff size to %d\n", rcvBufSize);
-			// auto optlen = sizeof(rcvBufSize);
-			// if (setsockopt(clientSocket, SOL_SOCKET, SO_SNDBUF, (const char*)rcvBufSize, optlen) < 0)
-			// {
-			// 	printf("setsockopt error=%d(%s)!!!\n", errno, strerror(errno));
-			// 	// goto error;
-			// }
-			// char buffer[409600];
-
             std::string filePath = request.substr(start + 4, end - (start + 4));
 
-            // 创建HTTP响应
             FILE* fq;
-            // filePath.append(rootDirectory);
             if (filePath == "notpermit.txt") {
                 printf("File not exist\n");
                 std::string response403 = create403HttpResponse("403.html");
                 int sendbytes = send(clientSocket, response403.c_str(), response403.length(), 0);
                 string filePath = "D:\\code\\403.html";
-                // cout << filePath << endl;
 
                 ifstream fileStream(filePath, ios::binary | ios::ate);
                 if (fileStream.is_open()) {
@@ -486,12 +430,6 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             
             // cout << sendbytes << endl;
         }
-        
-        // memset(recvBuf, '\0', sizeof(recvBuf));
-
-
-        // char recvBuf[256];
-
     }
 }
 
