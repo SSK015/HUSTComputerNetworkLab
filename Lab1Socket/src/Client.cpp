@@ -59,9 +59,9 @@ void LoadResources(string path, string& PicName, string&CssName) {
     std::smatch match;
     std::smatch match1;
 
-    std::cout << "Matching href attributes:" << std::endl;
+    // std::cout << "Matching href attributes:" << std::endl;
     while (std::regex_search(htmlContent, match, hrefRegex)) {
-        std::cout << "href: " << match[1] << std::endl;
+        // std::cout << "href: " << match[1] << std::endl;
         CssName = match[1];
         htmlContent = match.suffix().str();
     }
@@ -69,9 +69,9 @@ void LoadResources(string path, string& PicName, string&CssName) {
     // std::string htmlContent1((std::istreambuf_iterator<char>(inputFile1)), std::istreambuf_iterator<char>());
 
     // htmlContent1 = std::string((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
-    std::cout << "\nMatching src attributes:" << std::endl;
+    // std::cout << "\nMatching src attributes:" << std::endl;
     while (std::regex_search(htmlContent1, match1, srcRegex)) {
-        std::cout << "src: " << match1[1] << std::endl;
+        // std::cout << "src: " << match1[1] << std::endl;
         PicName = match1[1];
         htmlContent1 = match1.suffix().str();
     }
@@ -87,12 +87,12 @@ void loadConfig() {
 		// cout << serverPort << endl;
         configFile.ignore(numeric_limits<streamsize>::max(), '\n'); // Ignore the newline
         getline(configFile, rootDirectory);
-		cout << rootDirectory << endl;
+		// cout << rootDirectory << endl;
 		// getline(configFile, clien);
 		configFile >> clientPort;
-		cout << clientPort << endl;
+		// cout << clientPort << endl;
 		configFile >> requestedFileName;
-		cout << requestedFileName << endl;
+		// cout << requestedFileName << endl;
         configFile.close();
     } else {
         cerr << "Error opening config file. Using default values." << endl;
@@ -146,23 +146,16 @@ int main(){
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(serverPort);
 	serverAddr.sin_addr.S_un.S_addr = inet_addr(serverAddress.c_str());
-    // u_long nonBlockingMode = 1;
-    // if (ioctlsocket(clientSocket, FIONBIO, &nonBlockingMode) == SOCKET_ERROR) {
-    //     std::cerr << "Failed to set non-blocking mode" << std::endl;
-    //     closesocket(clientSocket);
-    //     WSACleanup();
-    //     return 1;
-    // }
 
-	// cout << "Client local port: " << clientAddr.sin_port << endl;
 	rtn = connect(clientSocket,(LPSOCKADDR)&serverAddr,sizeof(serverAddr));
-	if(rtn == SOCKET_ERROR )
+	if(rtn == SOCKET_ERROR ) {
 		printf("Connect to server error!\n");
-
-	printf("Connect to server ok!");
+		return 0;
+	}
+	// printf("Connect to server ok!");
 	int cnt = 0;
 	do {
-		loadConfig();
+		// loadConfig();
 		char MsgOption;
 		cout << "c to continue , q to quit" << endl;
 		cin >> MsgOption;
@@ -238,7 +231,7 @@ int main(){
     			std::string searchString = "404 Not Found";
 				std::string searchString1 = "403 Forbidden";
 				if (recvhttp.find(searchString) != std::string::npos) {
-					std::cout << "The string contains '404 Not Found'. Breaking loop." << std::endl;
+					std::cout << "The string contains '404 Not Found' " << std::endl;
 					// break;
 					if ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) < 10000000) {
 						response.append(buffer, bytesRead);
@@ -274,10 +267,10 @@ int main(){
 
 			}
 
-			cout << bytesRead << endl;
+			// cout << bytesRead << endl;
 			if ((bytesRead = recv(clientSocket, fileBuffer, 4000000, 0)) < 10000000) {	
 				response.append(fileBuffer, bytesRead);
-				cout << bytesRead << endl;
+				// cout << bytesRead << endl;
 			}
 
 			int CssByte, PicByte;
@@ -286,11 +279,11 @@ int main(){
 				if ((tmp = recv(clientSocket, CssBuffer, sizeof(CssBuffer), 0)) < 10000000) {
 					// recvhttp.append(request, bytesRead);
 					CssByte = tmp;
-					cout << tmp << endl;
+					// cout << tmp << endl;
 				}
 				if ((tmp = recv(clientSocket, PicBuffer, sizeof(PicBuffer), 0)) < 10000000) {
 					PicByte = tmp;
-					cout << tmp << endl;
+					// cout << tmp << endl;
 					// recvhttp.append(request, bytesRead);
 				}
 			}
@@ -316,10 +309,10 @@ int main(){
 
 			cout << "Finish http get context" << endl;
 
-			cout << fileSize << endl;
+			// cout << fileSize << endl;
 			FILE *fp;
 			if ((fp = fopen(requestedFileName.c_str(), "wb")) == NULL) {
-				cout << "file not" << endl;
+				// cout << "file not" << endl;
 			}
 			fwrite(fileBuffer, 1, fileSize, fp);
 

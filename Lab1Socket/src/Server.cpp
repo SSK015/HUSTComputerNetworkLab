@@ -26,7 +26,8 @@ int ResType = 0;
 // std::vector<
 
 void LoadResources(string path, string& PicName, string&CssName) {
-    std::ifstream inputFile("D:/code/index.html");
+    // if ()
+    std::ifstream inputFile(path);
     std::string htmlContent((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
 
     std::regex hrefRegex("href\\s*=\\s*\"([^\"]*)\"");
@@ -35,9 +36,9 @@ void LoadResources(string path, string& PicName, string&CssName) {
     std::smatch match;
     std::smatch match1;
 
-    std::cout << "Matching href attributes:" << std::endl;
+    // std::cout << "Matching href attributes:" << std::endl;
     while (std::regex_search(htmlContent, match, hrefRegex)) {
-        std::cout << "href: " << match[1] << std::endl;
+        // std::cout << "href: " << match[1] << std::endl;
         CssName = match[1];
         htmlContent = match.suffix().str();
     }
@@ -45,9 +46,9 @@ void LoadResources(string path, string& PicName, string&CssName) {
     std::string htmlContent1((std::istreambuf_iterator<char>(inputFile1)), std::istreambuf_iterator<char>());
 
     // htmlContent1 = std::string((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
-    std::cout << "\nMatching src attributes:" << std::endl;
+    // std::cout << "\nMatching src attributes:" << std::endl;
     while (std::regex_search(htmlContent1, match1, srcRegex)) {
-        std::cout << "src: " << match1[1] << std::endl;
+        // std::cout << "src: " << match1[1] << std::endl;
         PicName = match1[1];
         htmlContent1 = match1.suffix().str();
     }
@@ -56,52 +57,6 @@ void LoadResources(string path, string& PicName, string&CssName) {
 }
 
 
-
-void forwardRequest(SOCKET clientSocket, const std::string& targetURL) {
-    size_t hostStart = targetURL.find("://");
-    if (hostStart == std::string::npos) {
-        std::cerr << "Invalid URL format" << std::endl;
-        return;
-    }
-    hostStart += 3; // skip "://" 
-    size_t hostEnd = targetURL.find('/', hostStart);
-    std::string host = targetURL.substr(hostStart, hostEnd - hostStart);
-    cout << host << " sxs" << endl;
-
-    // set connection to the target
-    struct hostent* targetHost = gethostbyname(host.c_str());
-    if (targetHost == nullptr) {
-        perror("Error resolving host");
-        return;
-    }
-
-    int targetSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (targetSocket < 0) {
-        perror("Error creating socket to target");
-        return;
-    }
-    struct sockaddr_in targetAddr;
-    targetAddr.sin_family = AF_INET;
-    targetAddr.sin_port = htons(80);
-    targetAddr.sin_addr = *((struct in_addr*)targetHost->h_addr);
-
-    if (connect(targetSocket, (struct sockaddr*)&targetAddr, sizeof(targetAddr)) < 0) {
-        perror("Error connecting to target");
-        closesocket(targetSocket);
-        return;
-    }
-
-    std::string request = "GET " + targetURL.substr(hostEnd) + "index.html" + " HTTP/1.1\r\n";
-
-    int bytesSent = send(targetSocket, request.c_str(), request.length(), 0);
-    if (bytesSent < 0) {
-        perror("Error sending request to target");
-        closesocket(targetSocket);
-        return;
-    }
-
-    closesocket(targetSocket);
-}
 
 std::string getContentType(const std::string& filePath) {
     if (filePath.find(".html") != std::string::npos) {
@@ -135,7 +90,7 @@ std::string createHttpResponse(const std::string& filePath) {
     file.seekg(0, std::ios::beg);
     responseStream << file.rdbuf();
 
-    // cout << responseStream.str() << endl;
+    cout << "[Request] HTTP/1.1 200 OK" << endl;
     file.close();
     return responseStream.str();
 
@@ -144,7 +99,7 @@ std::string createHttpResponse(const std::string& filePath) {
 std::string create403HttpResponse(const std::string& filePath) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) {
-        return "HTTP/1.1 404 Not Found\r\n\r\nFile not found";
+        return "HTTP/1.1 403 Not Found\r\n\r\nFile not found";
     }
 
     std::ostringstream responseStream;
@@ -154,7 +109,7 @@ std::string create403HttpResponse(const std::string& filePath) {
     responseStream << "Content-Length: " << file.tellg() << "\r\n\r\n";
     file.seekg(0, std::ios::beg);
     responseStream << file.rdbuf();
-
+    cout << "[Request] HTTP/1.1 403 Forbidden" << endl;
     file.close();
     return responseStream.str();
 
@@ -167,13 +122,13 @@ std::string create404HttpResponse(const std::string& filePath) {
     }
 
     std::ostringstream responseStream;
-    responseStream << "HTTP/1.1 404 Forbidden\r\n";
+    responseStream << "HTTP/1.1 404 Not Found\r\n";
     responseStream << "Content-Type: " << getContentType(filePath) << "\r\n";
     file.seekg(0, std::ios::end);
     responseStream << "Content-Length: " << file.tellg() << "\r\n\r\n";
     file.seekg(0, std::ios::beg);
     responseStream << file.rdbuf();
-
+    cout << "[Request] HTTP/1.1 404 Not Found" << endl;
     // cout << responseStream.str() << endl;
     file.close();
     return responseStream.str();
@@ -184,7 +139,7 @@ void loadConfig() {
     if (configFile.is_open()) {
         getline(configFile, serverAddress);
         configFile >> serverPort;
-		cout << serverPort << endl;
+		// cout << serverPort << endl;
         configFile.ignore(numeric_limits<streamsize>::max(), '\n'); // Ignore the newline
         getline(configFile, rootDirectory);
         configFile.close();
@@ -199,11 +154,10 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
 
     while (true) {
         int rtn = recv(clientSocket, MSG, sizeof(MSG), 0);
-        cout << MSG << endl;
-        cout << rtn << endl;
+        // cout << MSG << endl;
+        // cout << rtn << endl;
         if (rtn > 0) {
-			// unsigned short clientPort = ntohs(clientAddr.sin_port);
-            // cout << "Received " << rtn << " bytes from client: " << "Port: " << clientPort << " msg: " << recvBuf << endl;
+
         } else if (rtn == 0) {
             cout << "Client disconnected." << endl;
             closesocket(clientSocket);
@@ -213,11 +167,10 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             closesocket(clientSocket);
             break;
         }
-        // cout << 
-        // if (strlen(MSG) == 1) {
+
         if (MSG[0] == 'm') {
             FLAG = Listen;
-            cout << "listen" << endl;
+            // cout << "listen" << endl;
         } else if (MSG[0] == 'f') {
             FLAG = Request;
         } else if (MSG[0] == 's') {
@@ -228,7 +181,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             FLAG = Exception;
         }
         // } 
-        loadConfig();
+        // loadConfig();
         
         if (FLAG == Listen) {
             // Msg
@@ -252,7 +205,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                     fileStream.seekg(0, ios::beg);
 
                     char* fileBuffer = new char[fileSize];
-                    cout << fileSize << endl;
+                    // cout << fileSize << endl;
                     fileStream.read(fileBuffer, fileSize);
 
                     send(clientSocket, fileBuffer, fileSize, 0);
@@ -295,6 +248,9 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 closesocket(clientSocket);
                 continue;
             }
+            unsigned short clientPort = ntohs(clientAddr.sin_port);
+            cout << "[Server]Receive http get" << endl;
+            cout << request << "From Address: " << serverAddress << "Port: " << clientPort << endl;
 
             std::string filePath = request.substr(start + 4, end - (start + 4));
 
@@ -312,7 +268,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                     fileStream.seekg(0, ios::beg);
 
                     char* fileBuffer = new char[fileSize];
-                    cout << fileSize << endl;
+                    // cout << fileSize << endl;
                     fileStream.read(fileBuffer, fileSize);
 
                     send(clientSocket, fileBuffer, fileSize, 0);
@@ -325,7 +281,8 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 continue;
             }
             filePath = rootDirectory + filePath;
-            cout << filePath << endl;
+            // cout << filePath << endl;
+
             
             
             if ((fq = fopen(filePath.c_str(), "rb")) == NULL) {
@@ -342,7 +299,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                     fileStream.seekg(0, ios::beg);
 
                     char* fileBuffer = new char[fileSize];
-                    cout << fileSize << endl;
+                    // cout << fileSize << endl;
                     fileStream.read(fileBuffer, fileSize);
 
                     send(clientSocket, fileBuffer, fileSize, 0);
@@ -355,11 +312,16 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 continue;
             }
             std::string CssName, PicName;
-
+            // size_t end1 = filePath.find(".html", start);
+            // if (end1 == std::string::npos) {
+            //     std::cerr << "Invalid HTTP request" << std::endl;
+            //     closesocket(clientSocket);
+            //     continue;
+            // }
             LoadResources(filePath, CssName, PicName);
             std::string response = createHttpResponse(filePath);
             int sendbytes = send(clientSocket, response.c_str(), response.length(), 0);
-            cout << sendbytes << endl;
+            // cout << sendbytes << endl;
             // FILE* fq;
             if ((fq = fopen(filePath.c_str(), "rb")) == NULL) {
                 printf("File not exist\n");
@@ -373,7 +335,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             // bzero()
             while (!feof(fq)) {
                 auto len = fread(buffer, 1, fileSize, fq);
-                cout << len << endl;
+                // cout << len << endl;
                 if (len != send(clientSocket, buffer, len, 0)) {
                     cout << "Writing" << endl;
                     break;
@@ -381,7 +343,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
             }
 
             fclose(fq);
-            cout << ResType << endl;
+            // cout << ResType << endl;
             // break;
             if (ResType) {
                 if ((fq = fopen(CssName.c_str(), "rb")) == NULL) {
@@ -396,7 +358,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 // bzero()
                 while (!feof(fq)) {
                     auto len = fread(buffer, 1, fileSize, fq);
-                    cout << len << endl;
+                    // cout << len << endl;
                     if (len != send(clientSocket, buffer, len, 0)) {
                         cout << "Writing" << endl;
                         break;
@@ -417,7 +379,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
                 // bzero()
                 while (!feof(fq)) {
                     auto len = fread(buffer, 1, fileSize, fq);
-                    cout << len << endl;
+                    // cout << len << endl;
                     if (len != send(clientSocket, buffer, len, 0)) {
                         cout << "Writing" << endl;
                         break;
