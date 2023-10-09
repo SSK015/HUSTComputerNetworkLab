@@ -193,7 +193,7 @@ int main(){
 			const std::string path = requestedFileName;
 			// cout << path << endl;
 			// cin >> path;
-			if (path.find(".html") != std::string::npos) {
+			if (path.find("x.html") != std::string::npos) {
 				ResType = 1;
 			} else {
 				// std::cout << "字符串不包含'.html'" << std::endl;
