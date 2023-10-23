@@ -1,0 +1,6 @@
+/home/xyw/Documents/Code/HUSTComputerNetworkLab/Lab2ReliableDataTransfer/StopWait/build/CMakeFiles/rebuild_cache.dir
+/home/xyw/Documents/Code/HUSTComputerNetworkLab/Lab2ReliableDataTransfer/StopWait/build/CMakeFiles/edit_cache.dir
+/home/xyw/Documents/Code/HUSTComputerNetworkLab/Lab2ReliableDataTransfer/StopWait/build/CMakeFiles/SR.dir
+/home/xyw/Documents/Code/HUSTComputerNetworkLab/Lab2ReliableDataTransfer/StopWait/build/CMakeFiles/TCP.dir
+/home/xyw/Documents/Code/HUSTComputerNetworkLab/Lab2ReliableDataTransfer/StopWait/build/CMakeFiles/GBN.dir
+/home/xyw/Documents/Code/HUSTComputerNetworkLab/Lab2ReliableDataTransfer/StopWait/build/CMakeFiles/stop_wait.dir

@@ -1,6 +1,8 @@
-#include "GBNRdtReciever.h"
+#include "TCPRdtReceiver.h"
 
-GBNRdtReceiver::GBNRdtReceiver() {
+using namespace dzh;
+
+TCPRdtReceiver::TCPRdtReceiver() {
     expected_seqnum = 1;
     last_ack_pkt.acknum = 0;
     last_ack_pkt.seqnum = 0;
@@ -8,13 +10,13 @@ GBNRdtReceiver::GBNRdtReceiver() {
     last_ack_pkt.checksum = pUtils->calculateCheckSum(last_ack_pkt);
 }
 
-GBNRdtReceiver::~GBNRdtReceiver() noexcept {
-    
+TCPRdtReceiver::~TCPRdtReceiver() noexcept {
+
 }
 
-void GBNRdtReceiver::receive(const Packet &packet) {
+void TCPRdtReceiver::receive(const Packet &packet) {
     int checksum = pUtils->calculateCheckSum(packet);
-    
+
     if(checksum == packet.checksum && expected_seqnum == packet.seqnum){
         pUtils->printPacket("接收方正确收到发送方的报文", packet);
 
